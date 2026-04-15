@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nym Checker / Stats</title>
+<style>
+  :root{--bg:#0a0e14;--bg2:#11161f;--line:#1f2630;--fg:#e6e8ef;--dim:#6b7280;--acc:#00E599;--err:#FF4D6A}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto;padding:30px 24px 80px}
+  h1{margin:0 0 4px;font-size:22px;font-weight:700}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:24px}
+  .auth{display:flex;gap:8px;margin-bottom:24px}
+  .auth input{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--fg);padding:10px 14px;border-radius:8px;font:inherit;outline:none}
+  .auth button{background:var(--acc);color:#001;border:0;padding:10px 22px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+  .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .kpi .b{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi .b .l{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.7px}
+  .kpi .b .v{font-size:24px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin:0 0 12px}
+  .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px;font-variant-numeric:tabular-nums}
+  .row:last-child{border-bottom:0}
+  .row .k{color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%}
+  .row .v{color:var(--acc);font-weight:600}
+  .bar{height:80px;display:flex;align-items:flex-end;gap:3px;margin-top:6px}
+  .bar div{flex:1;background:linear-gradient(180deg,var(--acc),#007a4d);border-radius:2px 2px 0 0;min-height:2px;position:relative}
+  .bar div:hover::after{content:attr(data-l);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap}
+  .err{color:var(--err);margin-top:10px;font-size:13px}
+  .lbl{color:var(--dim);font-size:11px;margin-top:4px;display:flex;justify-content:space-between}
+  @media (max-width:720px){.kpi{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nym Checker / Stats</h1>
+  <div class="sub">Visit analytics. IPs are hashed with daily salt for privacy.</div>
+
+  <div class="auth">
+    <input id="tok" type="password" placeholder="Admin token" autofocus>
+    <button onclick="load()">Load</button>
+  </div>
+
+  <div id="err" class="err"></div>
+  <div id="content" style="display:none">
+    <div class="kpi">
+      <div class="b"><div class="l">Total hits</div><div class="v" id="total">0</div></div>
+      <div class="b"><div class="l">Unique visitors</div><div class="v" id="unique">0</div></div>
+      <div class="b"><div class="l">Today hits</div><div class="v" id="today">0</div></div>
+      <div class="b"><div class="l">Today unique</div><div class="v" id="todayU">0</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <h2>Hits per day (last 30)</h2>
+      <div class="bar" id="bar"></div>
+      <div class="lbl"><span id="bar1"></span><span id="bar2"></span></div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h2>Top languages</h2><div id="lang"></div></div>
+      <div class="card"><h2>Top referrers</h2><div id="ref"></div></div>
+      <div class="card"><h2>Top paths</h2><div id="path"></div></div>
+      <div class="card"><h2>Browsers</h2><div id="ua"></div></div>
+    </div>
+  </div>
+</div>
+<script>
+function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function row(k,v){return '<div class="row"><span class="k">'+esc(k)+'</span><span class="v">'+v+'</span></div>'}
+function load(){
+  var tok=document.getElementById('tok').value.trim();
+  if(!tok){document.getElementById('err').textContent='Enter admin token';return}
+  document.getElementById('err').textContent='';
+  fetch('/api/stats',{headers:{'X-Admin-Token':tok}}).then(function(r){
+    if(!r.ok){throw new Error('HTTP '+r.status)}
+    return r.json();
+  }).then(function(d){
+    if(d.error){document.getElementById('err').textContent=d.error;return}
+    localStorage.setItem('nymStatsTok',tok);
+    document.getElementById('content').style.display='block';
+    document.getElementById('total').textContent=d.total;
+    document.getElementById('unique').textContent=d.unique;
+    document.getElementById('today').textContent=d.today;
+    document.getElementById('todayU').textContent=d.today_unique||0;
+    var bd=d.by_day||[],bar='';
+    var max=1;for(var i=0;i<bd.length;i++)if(bd[i].hits>max)max=bd[i].hits;
+    for(var i=0;i<bd.length;i++){
+      var h=Math.round(bd[i].hits/max*78);
+      bar+='<div style="height:'+h+'px" data-l="'+bd[i].day+': '+bd[i].hits+' ('+bd[i].unique+' uniq)"></div>';
+    }
+    document.getElementById('bar').innerHTML=bar;
+    if(bd.length){document.getElementById('bar1').textContent=bd[0].day;document.getElementById('bar2').textContent=bd[bd.length-1].day;}
+    function fill(id,arr){var h='';for(var i=0;i<arr.length;i++)h+=row(arr[i][0]||'(none)',arr[i][1]);document.getElementById(id).innerHTML=h||'<div class="row"><span class="k" style="color:#6b7280">no data</span></div>'}
+    fill('lang',d.by_lang||[]);
+    fill('ref',d.by_ref||[]);
+    fill('path',d.by_path||[]);
+    fill('ua',d.by_ua||[]);
+  }).catch(function(e){document.getElementById('err').textContent='Failed: '+e.message});
+}
+var saved=localStorage.getItem('nymStatsTok');
+if(saved){document.getElementById('tok').value=saved;load();}
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Runtime data (generated at runtime, never commit)
+nym_nodes_cache.json
+nym_monikers.json
+nym_hits.jsonl
+nym_hits.jsonl.*
+nym_vid_salt.txt
+nym_checker_security.log
+nym_port_changes.json
+
+# Local-only env
+.env
+
+# Backups
+*.bak
+*.bak*
+*.backup_*
+
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Editor / OS noise
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# Old one-off migration scripts (kept in git history if ever committed, but not required)
+# add_exit_policy.py
+# fix_exit_policy*.py

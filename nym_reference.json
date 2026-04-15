@@ -1,0 +1,150 @@
+{
+  "updated_at": "2026-04-15T10:00:01.370600+00:00",
+  "latest_version": "1.29.0",
+  "ports": {
+    "base": [
+      {
+        "port": 1789,
+        "proto": "tcp",
+        "desc": "Mixnet"
+      },
+      {
+        "port": 1790,
+        "proto": "tcp",
+        "desc": "Verloc"
+      },
+      {
+        "port": 8080,
+        "proto": "tcp",
+        "desc": "Node API"
+      }
+    ],
+    "gateway_extra": [
+      {
+        "port": 80,
+        "proto": "tcp",
+        "desc": "HTTP"
+      },
+      {
+        "port": 443,
+        "proto": "tcp",
+        "desc": "HTTPS"
+      },
+      {
+        "port": 9000,
+        "proto": "tcp",
+        "desc": "Clients"
+      },
+      {
+        "port": 9001,
+        "proto": "tcp",
+        "desc": "WSS"
+      }
+    ],
+    "wireguard_extra": [
+      {
+        "port": 51822,
+        "proto": "udp",
+        "desc": "WireGuard"
+      }
+    ],
+    "ntm_extra": [
+      {
+        "port": 41264,
+        "proto": "tcp",
+        "desc": "NTM TCP 41264"
+      },
+      {
+        "port": 4443,
+        "proto": "udp",
+        "desc": "NTM UDP 4443"
+      },
+      {
+        "port": 51264,
+        "proto": "udp",
+        "desc": "NTM UDP 51264"
+      }
+    ]
+  },
+  "min_hardware": {
+    "cpu_cores": 2,
+    "ram_mb": 4096,
+    "disk_gb": 40
+  },
+  "github_ntm_url": "https://raw.githubusercontent.com/nymtech/nym/refs/heads/develop/scripts/nym-node-setup/network-tunnel-manager.sh",
+  "nodes_api": "https://validator.nymtech.net/api/v1/nym-nodes/described",
+  "releases": [
+    {
+      "tag": "nym-binaries-v2026.7-tola",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.7-tola/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2026.6-stilton",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.6-stilton/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2026.5-raclette",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.5-raclette/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2026.4-quark",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.4-quark/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2026.3-parmigiano",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.3-parmigiano/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2026.2-oscypek",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.2-oscypek/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2026.1-niolo",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2026.1-niolo/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.21-mozzarella",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.21-mozzarella/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.20-leerdammer",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.20-leerdammer/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.19-kase",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.19-kase/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.18-jarlsberg",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.18-jarlsberg/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.17-isabirra",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.17-isabirra/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.14-feta",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.14-feta/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.13-emmental",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.13-emmental/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.12-dolcelatte",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.12-dolcelatte/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.11-cheddar",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.11-cheddar/nym-node"
+    },
+    {
+      "tag": "nym-binaries-v2025.10-brie",
+      "url": "https://github.com/nymtech/nym/releases/download/nym-binaries-v2025.10-brie/nym-node"
+    }
+  ],
+  "min_hardware_gateway": {
+    "cpu_cores": 4,
+    "ram_mb": 8192
+  }
+}

@@ -1,0 +1,22 @@
+# Copy to /etc/systemd/system/nym-checker.service
+# Edit paths/user, then: systemctl daemon-reload && systemctl enable --now nym-checker
+
+[Unit]
+Description=Nym Node Checker API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/nym-checker
+ExecStart=/usr/bin/python3 /opt/nym-checker/nym_checker_backend.py
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+# Set these for production:
+# Environment=NYM_CHECKER_TOKEN=change-me
+# Environment=CORS_ORIGINS=https://your-domain.example
+# Environment=STATIC_DIR=/opt/nym-checker/static
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# Copy to /etc/systemd/system/nym-checker-webhook.service
+# Then: systemctl daemon-reload && systemctl enable --now nym-checker-webhook
+
+[Unit]
+Description=Nym Checker GitHub Webhook Receiver
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/nym-checker
+ExecStart=/usr/bin/python3 /opt/nym-checker/deploy/webhook.py
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=WEBHOOK_PORT=9999
+Environment=DEPLOY_SCRIPT=/opt/nym-checker/deploy/deploy.sh
+# Set this to a long random string, same as GitHub webhook secret:
+# Environment=WEBHOOK_SECRET=change-me
+
+[Install]
+WantedBy=multi-user.target

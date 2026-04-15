@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nym Node Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{border-radius:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.batchCard{opacity:0}
+.batchBtn{transition:all .15s}
+.batchBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,229,153,.2)}
+.nr{transition:border-color .15s}
+.backbtn{transition:all .15s}
+.backbtn:hover{opacity:1 !important}
+.tip{transition:border-color .15s}
+.tip:hover{border-color:#00E599 !important}
+
+.nym-price{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;cursor:default}
+.nym-price-val{font-weight:600}
+.nym-price-change{font-weight:600;font-size:10px}
+</style>
+</head>
+<body>
+<div id="header"></div>
+<div id="content"></div>
+<div id="popup"></div>
+<script>
+var T={
+en:{title:"Nym Node Checker",sub:"Node compliance checker",network:"Network",compliance:"Fully compliant",issues:"Top issues",distribution:"Node distribution",sync:"Sync reference",ph:"IP, hostname or moniker...",all:"All",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"nodes",version:"Version",ports:"Ports",ipv6:"IPv6",hw:"Hardware",toc:"T&C",actual:"Actual",required:"Required",cpu:"CPU",ram:"RAM",open:"open",supported:"Yes",notSupported:"No",accepted:"Accepted",notAccepted:"Not accepted",back:"Back to list",unreachable:"Node unreachable",checking:"Checking...",syncing:"Syncing...",missing:"Closed ports",cores:" cores",mb:" MB",noNodes:"No nodes found",loading:"Loading...",tips:"Recommendations",tipVer:"Update nym-node to version",tipPorts:"Open ports with command:",tipIpv6:"IPv6 not detected",tipIpv6Aaaa:"Already have IPv6? Add an AAAA record at your DNS provider pointing to your IPv6 address — we'll detect it automatically",tipIpv6_contact:"No IPv6 yet? Enable it on your server or contact your hosting provider",tipHw:"Upgrade server specs",tipToc:"Accept Terms & Conditions",verDist:"Version Distribution",verOk:"Up to date",ver1:"1 behind",ver2:"2 behind",ver3:"3 behind",ver4:"4+ behind",totalNodes:"Total Nodes",tocAccepted:"T&C Accepted",ipv6Enabled:"IPv6 Enabled",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Outdated version",noToc:"T&C not accepted",noIpv6:"No IPv6",latestBadge:"latest",verBehind:"ver. behind",exitPolicy:"Exit Policy",exitPolicyDesc:"declared standard ports",exitPolicyShow:"Show all ports",exitPolicyHide:"Hide ports",showAllDetails:"Show all details",batchTooMany:"Too many nodes, refine search (max 35)",batchChecking:"Checking {n} nodes...",checkSelected:"Check selected",clearSel:"Clear"},
+ru:{title:"Nym Node Checker",sub:"\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0441\u043e\u043e\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u044f \u043d\u043e\u0434\u044b",sync:"\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u044d\u0442\u0430\u043b\u043e\u043d",ph:"IP, hostname \u0438\u043b\u0438 moniker...",all:"\u0412\u0441\u0435",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"\u043d\u043e\u0434",version:"\u0412\u0435\u0440\u0441\u0438\u044f",ports:"\u041f\u043e\u0440\u0442\u044b",ipv6:"IPv6",hw:"\u0416\u0435\u043b\u0435\u0437\u043e",toc:"T&C",actual:"\u0424\u0430\u043a\u0442",required:"\u0422\u0440\u0435\u0431.",cpu:"CPU",ram:"RAM",open:"\u043e\u0442\u043a\u0440\u044b\u0442\u044b",supported:"\u0415\u0441\u0442\u044c",notSupported:"\u041d\u0435\u0442",accepted:"\u041f\u0440\u0438\u043d\u044f\u0442\u044b",notAccepted:"\u041d\u0435 \u043f\u0440\u0438\u043d\u044f\u0442\u044b",back:"\u041d\u0430\u0437\u0430\u0434 \u043a \u0441\u043f\u0438\u0441\u043a\u0443",unreachable:"\u041d\u043e\u0434\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430",checking:"\u041f\u0440\u043e\u0432\u0435\u0440\u044f\u044e...",syncing:"\u0421\u0438\u043d\u0445...",missing:"\u0417\u0430\u043a\u0440\u044b\u0442\u044b\u0435 \u043f\u043e\u0440\u0442\u044b",cores:" \u044f\u0434.",mb:" MB",noNodes:"\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e",loading:"\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...",tips:"\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438",tipVer:"\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u0435 nym-node \u0434\u043e \u0432\u0435\u0440\u0441\u0438\u0438",tipPorts:"\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043f\u043e\u0440\u0442\u044b:",tipIpv6:"IPv6 \u043d\u0435 \u043e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d",tipIpv6Aaaa:"\u0415\u0441\u0442\u044c IPv6? \u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 AAAA-\u0437\u0430\u043f\u0438\u0441\u044c \u0443 DNS-\u043f\u0440\u043e\u0432\u0430\u0439\u0434\u0435\u0440\u0430 \u0441 \u0432\u0430\u0448\u0438\u043c IPv6-\u0430\u0434\u0440\u0435\u0441\u043e\u043c \u2014 \u043c\u044b \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0438\u043c \u0435\u0433\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438",tipIpv6_contact:"Нет IPv6? Включите на сервере или обратитесь к хостинг-провайдеру",tipHw:"\u0423\u043b\u0443\u0447\u0448\u0438\u0442\u0435 \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",tipToc:"\u041f\u0440\u0438\u043c\u0438\u0442\u0435 Terms & Conditions",network:"Сеть",compliance:"Полное соответствие",issues:"Главные проблемы",distribution:"Распределение нод",verDist:"Распределение версий",verOk:"Актуальная",ver1:"Отстаёт на 1",ver2:"Отстаёт на 2",ver3:"Отстаёт на 3",ver4:"Отстаёт на 4+",totalNodes:"Всего нод",tocAccepted:"T&C приняты",ipv6Enabled:"IPv6 включён",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Устаревшая версия",noToc:"T&C не приняты",noIpv6:"IPv6 отсутствует",latestBadge:"актуальная",verBehind:"вер. назад",exitPolicy:"Exit Policy",exitPolicyDesc:"заявленные стандартные порты",exitPolicyShow:"Показать все порты",exitPolicyHide:"Скрыть порты",showAllDetails:"Показать подробности",batchTooMany:"Слишком много нод, уточните поиск (макс 35)",batchChecking:"Проверяем {n} нод...",checkSelected:"Проверить выбранные",clearSel:"Сбросить"},
+uk:{title:"Nym Node Checker",sub:"\u041f\u0435\u0440\u0435\u0432\u0456\u0440\u043a\u0430 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u043d\u043e\u0441\u0442\u0456 \u043d\u043e\u0434\u0438",sync:"\u041e\u043d\u043e\u0432\u0438\u0442\u0438 \u0435\u0442\u0430\u043b\u043e\u043d",ph:"IP, hostname \u0430\u0431\u043e moniker...",all:"\u0412\u0441\u0456",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"\u043d\u043e\u0434",version:"\u0412\u0435\u0440\u0441\u0456\u044f",ports:"\u041f\u043e\u0440\u0442\u0438",ipv6:"IPv6",hw:"\u0417\u0430\u043b\u0456\u0437\u043e",toc:"T&C",actual:"\u0424\u0430\u043a\u0442",required:"\u0412\u0438\u043c\u043e\u0433\u0430",cpu:"CPU",ram:"RAM",open:"\u0432\u0456\u0434\u043a\u0440\u0438\u0442\u0456",supported:"\u0422\u0430\u043a",notSupported:"\u041d\u0456",accepted:"\u041f\u0440\u0438\u0439\u043d\u044f\u0442\u043e",notAccepted:"\u041d\u0435 \u043f\u0440\u0438\u0439\u043d\u044f\u0442\u043e",back:"\u041d\u0430\u0437\u0430\u0434 \u0434\u043e \u0441\u043f\u0438\u0441\u043a\u0443",unreachable:"\u041d\u043e\u0434\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430",checking:"\u041f\u0435\u0440\u0435\u0432\u0456\u0440\u044f\u044e...",syncing:"\u0421\u0438\u043d\u0445...",missing:"\u0417\u0430\u043a\u0440\u0438\u0442\u0456 \u043f\u043e\u0440\u0442\u0438",cores:" \u044f\u0434.",mb:" MB",noNodes:"\u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e",loading:"\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f...",tips:"\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0456\u0457",tipVer:"\u041e\u043d\u043e\u0432\u0456\u0442\u044c nym-node \u0434\u043e \u0432\u0435\u0440\u0441\u0456\u0457",tipPorts:"\u0412\u0456\u0434\u043a\u0440\u0438\u0439\u0442\u0435 \u043f\u043e\u0440\u0442\u0438:",tipIpv6:"IPv6 \u043d\u0435 \u0432\u0438\u044f\u0432\u043b\u0435\u043d\u043e",tipIpv6Aaaa:"\u0404 IPv6? \u0414\u043e\u0434\u0430\u0439\u0442\u0435 AAAA-\u0437\u0430\u043f\u0438\u0441 \u0443 DNS-\u043f\u0440\u043e\u0432\u0430\u0439\u0434\u0435\u0440\u0430 \u0437 \u0432\u0430\u0448\u043e\u044e IPv6-\u0430\u0434\u0440\u0435\u0441\u043e\u044e \u2014 \u043c\u0438 \u0432\u0438\u0437\u043d\u0430\u0447\u0438\u043c\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e",tipIpv6_contact:"Немає IPv6? Увімкніть на сервері або зверніться до хостинг-провайдера",tipHw:"\u041f\u043e\u043a\u0440\u0430\u0449\u0456\u0442\u044c \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",tipToc:"\u041f\u0440\u0438\u0439\u043c\u0456\u0442\u044c Terms & Conditions",network:"Мережа",compliance:"Повна відповідність",issues:"Головні проблеми",distribution:"Розподіл нод",verDist:"Розподіл версій",verOk:"Актуальна",ver1:"відстає на 1",ver2:"відстає на 2",ver3:"відстає на 3",ver4:"відстає на 4+",totalNodes:"Усього нод",tocAccepted:"T&C прийнято",ipv6Enabled:"IPv6 включено",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Застаріла версія",noToc:"T&C не прийнято",noIpv6:"IPv6 відсутній",latestBadge:"актуальна",verBehind:"вер. назад",exitPolicy:"Exit Policy",exitPolicyDesc:"заявлені стандартні порти",exitPolicyShow:"Показати всі порти",exitPolicyHide:"Сховати порти",showAllDetails:"Показати подробиці",batchTooMany:"Забагато нод, уточніть пошук (макс 35)",batchChecking:"Перевіряємо {n} нод...",checkSelected:"Перевірити вибрані",clearSel:"Скинути"},
+zh:{title:"Nym \u8282\u70b9\u68c0\u67e5\u5668",sub:"\u8282\u70b9\u5408\u89c4\u68c0\u67e5",sync:"\u540c\u6b65\u57fa\u51c6",ph:"IP\u3001\u4e3b\u673a\u540d\u6216 moniker...",all:"\u5168\u90e8",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"\u8282\u70b9",version:"\u7248\u672c",ports:"\u7aef\u53e3",ipv6:"IPv6",hw:"\u786c\u4ef6",toc:"T&C",actual:"\u5b9e\u9645",required:"\u8981\u6c42",cpu:"CPU",ram:"RAM",open:"\u5f00\u653e",supported:"\u652f\u6301",notSupported:"\u4e0d\u652f\u6301",accepted:"\u5df2\u63a5\u53d7",notAccepted:"\u672a\u63a5\u53d7",back:"\u8fd4\u56de\u5217\u8868",unreachable:"\u8282\u70b9\u4e0d\u53ef\u8fbe",checking:"\u68c0\u67e5\u4e2d...",syncing:"\u540c\u6b65\u4e2d...",missing:"\u5173\u95ed\u7684\u7aef\u53e3",cores:" \u6838",mb:" MB",noNodes:"\u672a\u627e\u5230\u8282\u70b9",loading:"\u52a0\u8f7d\u4e2d...",tips:"\u5efa\u8bae",tipVer:"\u66f4\u65b0 nym-node \u5230\u7248\u672c",tipPorts:"\u6253\u5f00\u7aef\u53e3:",tipIpv6:"\u672a\u68c0\u6d4b\u5230 IPv6",tipIpv6Aaaa:"\u5df2\u6709 IPv6\uff1f\u5728DNS\u63d0\u4f9b\u5546\u6dfb\u52a0\u6307\u5411\u60a8IPv6\u5730\u5740\u7684AAAA\u8bb0\u5f55\u2014\u7cfb\u7edf\u5c06\u81ea\u52a8\u68c0\u6d4b",tipIpv6_contact:"没有 IPv6？在服务器上启用或联系托管提供商",tipHw:"\u5347\u7ea7\u670d\u52a1\u5668\u914d\u7f6e",tipToc:"\u63a5\u53d7 Terms & Conditions",network:"网络",compliance:"完全合规",issues:"主要问题",distribution:"节点分布",verDist:"版本分布",verOk:"最新",ver1:"落后1版",ver2:"落后2版",ver3:"落后3版",ver4:"落后4+版",totalNodes:"总节点",tocAccepted:"T&C 已接受",ipv6Enabled:"IPv6 已开启",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"版本过旧",noToc:"未接受T&C",noIpv6:"无IPv6",latestBadge:"最新",verBehind:"版落后",exitPolicy:"Exit Policy",exitPolicyDesc:"声明的标准端口",exitPolicyShow:"显示所有端口",exitPolicyHide:"隐藏端口",showAllDetails:"显示全部详情",batchTooMany:"节点过多，请细化搜索（最多35）",batchChecking:"正在检查 {n} 个节点...",checkSelected:"检查所选",clearSel:"清除"},
+es:{title:"Nym Node Checker",sub:"Verificador de cumplimiento",sync:"Sincronizar",ph:"IP, hostname o moniker...",all:"Todos",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"nodos",version:"Versi\u00f3n",ports:"Puertos",ipv6:"IPv6",hw:"Hardware",toc:"T&C",actual:"Actual",required:"Requerido",cpu:"CPU",ram:"RAM",open:"abiertos",supported:"S\u00ed",notSupported:"No",accepted:"Aceptados",notAccepted:"No aceptados",back:"Volver",unreachable:"Nodo inaccesible",checking:"Verificando...",syncing:"Sincronizando...",missing:"Puertos cerrados",cores:" n\u00facleos",mb:" MB",noNodes:"Sin resultados",loading:"Cargando...",tips:"Recomendaciones",tipVer:"Actualizar nym-node a",tipPorts:"Abrir puertos:",tipIpv6:"IPv6 no detectado",tipIpv6Aaaa:"¿Ya tienes IPv6? Añade un registro AAAA en tu proveedor DNS con tu dirección IPv6 — lo detectaremos automáticamente",tipIpv6_contact:"\u00bfA\u00fan sin IPv6? Act\u00edvalo en tu servidor o contacta a tu proveedor de hosting",tipHw:"Mejorar servidor",tipToc:"Aceptar Terms & Conditions",network:"Red",compliance:"Cumplimiento total",issues:"Principales problemas",distribution:"Distribución de nodos",verDist:"Distribución de versiones",verOk:"Actualizado",ver1:"1 atrás",ver2:"2 atrás",ver3:"3 atrás",ver4:"4+ atrás",totalNodes:"Total nodos",tocAccepted:"T&C aceptados",ipv6Enabled:"IPv6 activo",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Versión desactualizada",noToc:"T&C no aceptados",noIpv6:"Sin IPv6",latestBadge:"actual",verBehind:"ver. atrás",exitPolicy:"Exit Policy",exitPolicyDesc:"puertos estándar declarados",exitPolicyShow:"Mostrar todos",exitPolicyHide:"Ocultar puertos",showAllDetails:"Mostrar todos los detalles",batchTooMany:"Demasiados nodos, afine la búsqueda (máx 35)",batchChecking:"Verificando {n} nodos...",checkSelected:"Verificar seleccionados",clearSel:"Limpiar"},
+tr:{title:"Nym Node Checker",sub:"D\u00fc\u011f\u00fcm uyumluluk kontrol\u00fc",sync:"Senkronize et",ph:"IP, hostname veya moniker...",all:"T\u00fcm\u00fc",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"d\u00fc\u011f\u00fcm",version:"S\u00fcr\u00fcm",ports:"Portlar",ipv6:"IPv6",hw:"Donan\u0131m",toc:"T&C",actual:"Mevcut",required:"Gerekli",cpu:"CPU",ram:"RAM",open:"a\u00e7\u0131k",supported:"Evet",notSupported:"Hay\u0131r",accepted:"Kabul edildi",notAccepted:"Kabul edilmedi",back:"Listeye d\u00f6n",unreachable:"Eri\u015filemiyor",checking:"Kontrol...",syncing:"Senkronize...",missing:"Kapal\u0131 portlar",cores:" \u00e7ekirdek",mb:" MB",noNodes:"Bulunamad\u0131",loading:"Y\u00fckleniyor...",tips:"\u00d6neriler",tipVer:"nym-node g\u00fcncelleyin",tipPorts:"Portlar\u0131 a\u00e7\u0131n:",tipIpv6:"IPv6 tespit edilmedi",tipIpv6Aaaa:"IPv6'n\u0131z var m\u0131? DNS sa\u011flay\u0131c\u0131n\u0131zda IPv6 adresinizi g\u00f6steren AAAA kayd\u0131 ekleyin \u2014 otomatik alg\u0131layaca\u011f\u0131z",tipIpv6_contact:"IPv6 yok mu? Sunucunuzda etkinleştirin veya hosting sağlayıcınıza başvurun",tipHw:"Sunucuyu y\u00fckseltin",tipToc:"T&C kabul edin",verDist:"Sürüm dağılımı",verOk:"Güncel",ver1:"1 geride",ver2:"2 geride",ver3:"3 geride",ver4:"4+ geride",totalNodes:"Toplam düğüm",tocAccepted:"T&C kabul edildi",ipv6Enabled:"IPv6 aktif",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Sürüm eski",noToc:"T&C kabul edilmedi",noIpv6:"IPv6 yok",latestBadge:"güncel",verBehind:"ver. geride",network:"Ağ",compliance:"Tam uyumluluk",issues:"Başlıca sorunlar",distribution:"Düğüm dağılımı",exitPolicy:"Exit Policy",exitPolicyDesc:"beyan edilen standart portlar",exitPolicyShow:"Tüm portları göster",exitPolicyHide:"Portları gizle",showAllDetails:"Tüm detayları göster",batchTooMany:"Çok fazla düğüm, aramayı daraltın (maks 35)",batchChecking:"{n} düğüm kontrol ediliyor...",checkSelected:"Seçilenleri kontrol et",clearSel:"Temizle"},
+de:{title:"Nym Node Checker",sub:"Knoten-Compliance-Pr\u00fcfer",sync:"Aktualisieren",ph:"IP, Hostname oder Moniker...",all:"Alle",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"Knoten",version:"Version",ports:"Ports",ipv6:"IPv6",hw:"Hardware",toc:"T&C",actual:"Aktuell",required:"Erforderlich",cpu:"CPU",ram:"RAM",open:"offen",supported:"Ja",notSupported:"Nein",accepted:"Akzeptiert",notAccepted:"Nicht akzeptiert",back:"Zur\u00fcck",unreachable:"Nicht erreichbar",checking:"Pr\u00fcfe...",syncing:"Synchronisiere...",missing:"Geschlossene Ports",cores:" Kerne",mb:" MB",noNodes:"Keine gefunden",loading:"Laden...",tips:"Empfehlungen",tipVer:"nym-node aktualisieren auf",tipPorts:"Ports \u00f6ffnen:",tipIpv6:"IPv6 nicht erkannt",tipIpv6Aaaa:"IPv6 vorhanden? Fügen Sie beim DNS-Anbieter einen AAAA-Eintrag mit Ihrer IPv6-Adresse hinzu — wir erkennen ihn automatisch",tipIpv6_contact:"Kein IPv6? Aktivieren Sie es auf Ihrem Server oder wenden Sie sich an Ihren Hosting-Anbieter",tipHw:"Server upgraden",tipToc:"T&C akzeptieren",verDist:"Versionsverteilung",verOk:"Aktuell",ver1:"1 zurück",ver2:"2 zurück",ver3:"3 zurück",ver4:"4+ zurück",totalNodes:"Knoten gesamt",tocAccepted:"T&C akzeptiert",ipv6Enabled:"IPv6 aktiv",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Version veraltet",noToc:"T&C nicht akzeptiert",noIpv6:"Kein IPv6",latestBadge:"aktuell",verBehind:"Ver. zurück",network:"Netzwerk",compliance:"Vollständig konform",issues:"Hauptprobleme",distribution:"Knotenverteilung",exitPolicy:"Exit Policy",exitPolicyDesc:"deklarierte Standardports",exitPolicyShow:"Alle Ports anzeigen",exitPolicyHide:"Ports ausblenden",showAllDetails:"Alle Details anzeigen",batchTooMany:"Zu viele Knoten, Suche eingrenzen (max 35)",batchChecking:"Prüfe {n} Knoten...",checkSelected:"Ausgewählte prüfen",clearSel:"Leeren"},
+fr:{title:"Nym Node Checker",sub:"V\u00e9rificateur de conformit\u00e9",sync:"Synchroniser",ph:"IP, hostname ou moniker...",all:"Tous",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"n\u0153uds",version:"Version",ports:"Ports",ipv6:"IPv6",hw:"Mat\u00e9riel",toc:"T&C",actual:"R\u00e9el",required:"Requis",cpu:"CPU",ram:"RAM",open:"ouverts",supported:"Oui",notSupported:"Non",accepted:"Accept\u00e9s",notAccepted:"Non accept\u00e9s",back:"Retour",unreachable:"Inaccessible",checking:"V\u00e9rification...",syncing:"Synchronisation...",missing:"Ports ferm\u00e9s",cores:" c\u0153urs",mb:" Mo",noNodes:"Aucun trouv\u00e9",loading:"Chargement...",tips:"Recommandations",tipVer:"Mettre \u00e0 jour nym-node",tipPorts:"Ouvrir les ports:",tipIpv6:"IPv6 non détecté",tipIpv6Aaaa:"Déjà un IPv6 ? Ajoutez un enregistrement AAAA chez votre fournisseur DNS avec votre adresse IPv6 — nous le détecterons automatiquement",tipIpv6_contact:"Pas d'IPv6 ? Activez-le sur votre serveur ou contactez votre hébergeur",tipHw:"Am\u00e9liorer le serveur",tipToc:"Accepter T&C",verDist:"Distribution des versions",verOk:"À jour",ver1:"1 de retard",ver2:"2 de retard",ver3:"3 de retard",ver4:"4+ de retard",totalNodes:"Total nœuds",tocAccepted:"T&C acceptés",ipv6Enabled:"IPv6 activé",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Version obsolète",noToc:"T&C non acceptés",noIpv6:"Sans IPv6",latestBadge:"actuelle",verBehind:"ver. de retard",network:"Réseau",compliance:"Conformité totale",issues:"Problèmes principaux",distribution:"Distribution des nœuds",exitPolicy:"Exit Policy",exitPolicyDesc:"ports standard déclarés",exitPolicyShow:"Afficher tous les ports",exitPolicyHide:"Masquer les ports",showAllDetails:"Afficher tous les détails",batchTooMany:"Trop de nœuds, affinez la recherche (max 35)",batchChecking:"Vérification de {n} nœuds...",checkSelected:"Vérifier la sélection",clearSel:"Effacer"},
+it:{title:"Nym Node Checker",sub:"Verifica conformit\u00e0",sync:"Sincronizza",ph:"IP, hostname o moniker...",all:"Tutti",mix:"Mixnode",entry:"Entry GW",exit:"Exit GW",nodes:"nodi",version:"Versione",ports:"Porte",ipv6:"IPv6",hw:"Hardware",toc:"T&C",actual:"Attuale",required:"Richiesto",cpu:"CPU",ram:"RAM",open:"aperte",supported:"S\u00ec",notSupported:"No",accepted:"Accettati",notAccepted:"Non accettati",back:"Torna",unreachable:"Irraggiungibile",checking:"Verifica...",syncing:"Sincronizzazione...",missing:"Porte chiuse",cores:" core",mb:" MB",noNodes:"Nessun nodo",loading:"Caricamento...",tips:"Raccomandazioni",tipVer:"Aggiorna nym-node a",tipPorts:"Apri porte:",tipIpv6:"IPv6 non rilevato",tipIpv6Aaaa:"Hai già IPv6? Aggiungi un record AAAA presso il tuo provider DNS con il tuo indirizzo IPv6 — lo rileveremo automaticamente",tipIpv6_contact:"Nessun IPv6? Abilitalo sul server o contatta il tuo provider di hosting",tipHw:"Aggiorna server",tipToc:"Accetta T&C",network:"Rete",compliance:"Piena conformità",issues:"Problemi principali",distribution:"Distribuzione nodi",verDist:"Distribuzione versioni",verOk:"Aggiornato",ver1:"1 indietro",ver2:"2 indietro",ver3:"3 indietro",ver4:"4+ indietro",totalNodes:"Totale nodi",tocAccepted:"T&C accettati",ipv6Enabled:"IPv6 attivo",entryGw:"Entry GW",exitGw:"Exit GW",outdated:"Versione obsoleta",noToc:"T&C non accettati",noIpv6:"Nessun IPv6",latestBadge:"attuale",verBehind:"ver. indietro",exitPolicy:"Exit Policy",exitPolicyDesc:"porte standard dichiarate",exitPolicyShow:"Mostra tutte le porte",exitPolicyHide:"Nascondi porte",showAllDetails:"Mostra tutti i dettagli",batchTooMany:"Troppi nodi, affina la ricerca (max 35)",batchChecking:"Verifica di {n} nodi...",checkSelected:"Verifica selezionati",clearSel:"Cancella"}
+};
+var LANGS=[['en','English'],['ru','\u0420\u0443\u0441\u0441\u043a\u0438\u0439'],['uk','\u0423\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u0430'],['zh','\u4e2d\u6587'],['es','Espa\u00f1ol'],['tr','T\u00fcrk\u00e7e'],['de','Deutsch'],['fr','Fran\u00e7ais'],['it','Italiano']];
+var MC={"mixnode":"#A78BFA","entry-gateway":"#38BDF8","exit-gateway":"#F472B6"};
+var DEAD_PHRASES={
+en:["The patient is more dead than alive \uD83D\uDC80","This node has ridden off into the sunset \uD83C\uDF05","Here lies a node. RIP. \uD83E\uDEA6","Node not responding. Maybe it went out for bread. \uD83E\uDD56","404 Node Not Found","Node is sleeping. Do not disturb. \uD83D\uDE34","This node is on vacation in Bali \uD83C\uDFDD\uFE0F","Looks like the operator forgot to pay for hosting \uD83D\uDCB8","Gone to the happy hunting grounds \uD83C\uDFF9","No signal. Hello? Hello? \uD83D\uDCDE"],
+ru:["Пациент скорее мёртв, чем жив \uD83D\uDC80","Нода ушла в закат \uD83C\uDF05","Здесь покоится нода. RIP. \uD83E\uDEA6","Нода не отвечает. Возможно, ушла за хлебом \uD83E\uDD56","404 Node Not Found","Нода спит. Не будите \uD83D\uDE34","Нода в отпуске на Бали \uD83C\uDFDD\uFE0F","Видимо, оператор забыл оплатить хостинг \uD83D\uDCB8","Нода отправилась в страну вечной охоты \uD83C\uDFF9","Сигнала нет. Алло? Алло? \uD83D\uDCDE"],
+uk:["Пацієнт радше мертвий, ніж живий \uD83D\uDC80","Нода пішла у захід \uD83C\uDF05","Тут спочиває нода. RIP. \uD83E\uDEA6","Нода не відповідає. Мабуть, пішла по хліб \uD83E\uDD56","404 Node Not Found","Нода спить. Не будіть \uD83D\uDE34","Нода у відпустці на Балі \uD83C\uDFDD\uFE0F","Схоже, оператор забув оплатити хостинг \uD83D\uDCB8","Нода вирушила в країну вічного полювання \uD83C\uDFF9","Сигналу немає. Алло? Алло? \uD83D\uDCDE"],
+zh:["病人已经奄奄一息 \uD83D\uDC80","这个节点已远去夕阳 \uD83C\uDF05","这里安息着一个节点。安息吧 \uD83E\uDEA6","节点没有响应。也许它出去买面包了 \uD83E\uDD56","404 找不到节点","节点正在睡觉。请勿打扰 \uD83D\uDE34","这个节点正在巴厘岛度假 \uD83C\uDFDD\uFE0F","看来运营商忘记交托管费了 \uD83D\uDCB8","已前往幸福的猎场 \uD83C\uDFF9","没有信号。喂？喂？ \uD83D\uDCDE"],
+es:["El paciente está más muerto que vivo \uD83D\uDC80","Este nodo cabalgó hacia el atardecer \uD83C\uDF05","Aquí yace un nodo. DEP. \uD83E\uDEA6","El nodo no responde. Quizás salió a comprar pan \uD83E\uDD56","404 Nodo no encontrado","El nodo duerme. No molestar \uD83D\uDE34","Este nodo está de vacaciones en Bali \uD83C\uDFDD\uFE0F","Parece que el operador olvidó pagar el hosting \uD83D\uDCB8","Se fue a los felices cotos de caza \uD83C\uDFF9","Sin señal. ¿Hola? ¿Hola? \uD83D\uDCDE"],
+tr:["Hasta yaşadığından çok ölü \uD83D\uDC80","Bu düğüm gün batımına doğru gitti \uD83C\uDF05","Burada bir düğüm yatıyor. Huzur içinde uyu \uD83E\uDEA6","Düğüm cevap vermiyor. Belki ekmek almaya çıkmıştır \uD83E\uDD56","404 Düğüm Bulunamadı","Düğüm uyuyor. Rahatsız etmeyin \uD83D\uDE34","Bu düğüm Bali'de tatilde \uD83C\uDFDD\uFE0F","Görünüşe göre operatör hosting ödemeyi unutmuş \uD83D\uDCB8","Mutlu av sahalarına gitti \uD83C\uDFF9","Sinyal yok. Alo? Alo? \uD83D\uDCDE"],
+de:["Der Patient ist mehr tot als lebendig \uD83D\uDC80","Dieser Knoten ist in den Sonnenuntergang geritten \uD83C\uDF05","Hier ruht ein Knoten. RIP. \uD83E\uDEA6","Knoten antwortet nicht. Vielleicht ist er Brot holen gegangen \uD83E\uDD56","404 Knoten nicht gefunden","Knoten schläft. Nicht stören \uD83D\uDE34","Dieser Knoten macht Urlaub auf Bali \uD83C\uDFDD\uFE0F","Sieht aus, als hätte der Betreiber vergessen, das Hosting zu bezahlen \uD83D\uDCB8","Ist in die ewigen Jagdgründe eingegangen \uD83C\uDFF9","Kein Signal. Hallo? Hallo? \uD83D\uDCDE"],
+fr:["Le patient est plus mort que vivant \uD83D\uDC80","Ce nœud est parti vers le coucher du soleil \uD83C\uDF05","Ci-gît un nœud. RIP. \uD83E\uDEA6","Le nœud ne répond pas. Il est peut-être parti chercher du pain \uD83E\uDD56","404 Nœud introuvable","Le nœud dort. Ne pas déranger \uD83D\uDE34","Ce nœud est en vacances à Bali \uD83C\uDFDD\uFE0F","On dirait que l'opérateur a oublié de payer l'hébergement \uD83D\uDCB8","Parti vers les heureux terrains de chasse \uD83C\uDFF9","Pas de signal. Allô ? Allô ? \uD83D\uDCDE"],
+it:["Il paziente è più morto che vivo \uD83D\uDC80","Questo nodo è partito verso il tramonto \uD83C\uDF05","Qui giace un nodo. RIP. \uD83E\uDEA6","Il nodo non risponde. Forse è uscito a comprare il pane \uD83E\uDD56","404 Nodo non trovato","Il nodo dorme. Non disturbare \uD83D\uDE34","Questo nodo è in vacanza a Bali \uD83C\uDFDD\uFE0F","Sembra che l'operatore si sia dimenticato di pagare l'hosting \uD83D\uDCB8","Andato nei felici campi di caccia \uD83C\uDFF9","Nessun segnale. Pronto? Pronto? \uD83D\uDCDE"]
+};
+function deadPhrase(){var arr=DEAD_PHRASES[lang]||DEAD_PHRASES.en;return arr[Math.floor(Math.random()*arr.length)];}
+var lang=localStorage.getItem('nymLang')||'en';
+var dark=localStorage.getItem('nymDark')!=='false';
+var filterMode=null,query='',nodes=[],selected=null,checking=false,syncing=false,nodesLoaded=false,latestVer='',page='nodes',netStats=null,netLoading=false;
+var showLimit=50;
+var batchResults=null,batchChecking=false;
+var batchSelected={};
+var popupResult=null;
+var BATCH_MAX=35;
+function isMobile(){return window.innerWidth<=640;}
+function isTablet(){return window.innerWidth>640&&window.innerWidth<=1024;}
+function selCount(){var n=0;for(var k in batchSelected)if(batchSelected[k])n++;return n;}
+function toggleSel(id,ev){if(ev){ev.stopPropagation();}if(batchSelected[id])delete batchSelected[id];else batchSelected[id]=true;renderContent();}
+function clearSel(){batchSelected={};renderContent();}
+var LR='\u0439\u0446\u0443\u043a\u0435\u043d\u0433\u0448\u0449\u0437\u0445\u044a\u0444\u044b\u0432\u0430\u043f\u0440\u043e\u043b\u0434\u0436\u044d\u044f\u0447\u0441\u043c\u0438\u0442\u044c\u0431\u044e.';
+var LE="qwertyuiop[]asdfghjkl;'zxcvbnm,./";
+function lc(s){var r='';for(var i=0;i<s.length;i++){var c=s[i];var ri=LR.indexOf(c);if(ri!==-1){r+=LE[ri];}else{var cl=c.toLowerCase();ri=LR.indexOf(cl);if(ri!==-1){r+=LE[ri].toUpperCase();}else{r+=c;}}}return r;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function sc(s){return s>=90?'#00E599':s>=70?'#FFB224':'#FF4D6A';}
+function flag(code){if(!code||code.length!==2)return '';try{var a=0x1F1E6;var up=code.toUpperCase();return String.fromCodePoint(a+(up.charCodeAt(0)-65))+String.fromCodePoint(a+(up.charCodeAt(1)-65));}catch(e){return '';}}
+function C(){var d=dark;return{bg:d?'#0C0D11':'#F5F5F0',bg2:d?'#13151A':'#FFF',bg3:d?'#1E2028':'#EEEDE8',brd:d?'#2A2D35':'#DDDCD6',tx:d?'#E5E7EB':'#1A1A1A',tx2:d?'#9CA3AF':'#6B7280',tx3:d?'#6B7280':'#9CA3AF',tx4:d?'#4B5563':'#BBBAB5'};}
+function badge(t,c){return '<span style="display:inline-flex;padding:2px 8px;border-radius:5px;background:'+c+'12;border:1px solid '+c+'30;color:'+c+';font-family:JetBrains Mono,monospace;font-size:10px;font-weight:500">'+t+'</span>';}
+function ftab(label,active,fn,color){var c=C(),cl=color||(dark?'#00E599':'#00B37A');return '<button onclick="'+fn+'" style="background:'+(active?cl+'15':c.bg2)+';border:1px solid '+(active?cl+'50':c.brd)+';border-radius:8px;padding:6px 14px;color:'+(active?cl:c.tx2)+';font-size:12px;font-weight:'+(active?'600':'400')+';cursor:pointer;font-family:Outfit,sans-serif">'+label+'</button>';}
+function mini(label,val,max,ok){var c=C(),cl=ok?'#00E599':'#FF4D6A',pct=Math.round(100*val/max);return '<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:8px;padding:8px 10px;text-align:center"><div style="font-size:16px;font-weight:700;color:'+cl+'">'+val+'<span style="font-size:10px;color:'+c.tx3+';font-weight:400">/'+max+'</span></div><div style="height:3px;background:'+c.bg3+';border-radius:2px;margin:5px 0 4px"><div style="height:3px;background:'+cl+';border-radius:2px;width:'+pct+'%"></div></div><div style="font-size:9px;color:'+c.tx3+';text-transform:uppercase;letter-spacing:.06em">'+label+'</div></div>';}
+function drow(label,actual,req,ok){var c=C(),cl=ok?'#00E599':'#FF4D6A';return '<div style="display:grid;grid-template-columns:2fr 1.2fr 1.2fr;padding:9px 14px;border-bottom:1px solid '+c.brd+';align-items:center"><div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:'+cl+';flex-shrink:0"></div><span style="font-size:12px;color:'+c.tx3+'">'+label+'</span></div><span style="font-family:JetBrains Mono,monospace;font-size:12px;font-weight:500;color:'+cl+';text-align:right">'+actual+'</span><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:'+c.tx4+';text-align:right">'+req+'</span></div>';}
+function searchMatch(n,q){var ql=q.toLowerCase();var qe=lc(q).toLowerCase();return mm(n,ql)||mm(n,qe);}
+function mm(n,ql){return(n.ip||'').toLowerCase().indexOf(ql)!==-1||(n.moniker||'').toLowerCase().indexOf(ql)!==-1||(n.hostname||'').toLowerCase().indexOf(ql)!==-1||String(n.node_id||'').indexOf(ql)!==-1;}
+
+function renderHeader(){
+  var t=T[lang]||T.en,c=C();
+  document.body.style.background=c.bg;document.body.style.color=c.tx;
+  var h=dark?'<div style="position:fixed;inset:0;background-image:linear-gradient(#00E59906 1px,transparent 1px),linear-gradient(90deg,#00E59906 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0"></div>':'';
+  var _hpad=isMobile()?'padding:16px 12px 0':'padding:28px 20px 0';
+  var _hwide=(batchResults||batchChecking)&&!isMobile()?'max-width:1500px':'max-width:700px';
+  h+='<div style="position:relative;z-index:1;'+_hwide+';margin:0 auto;'+_hpad+'">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px"><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00E599,#00B37A);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 12L11 14L15 10" stroke="#0C0D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2L3 7V12C3 16.97 7.03 21.44 12 22C16.97 21.44 21 16.97 21 12V7L12 2Z" stroke="#0C0D11" stroke-width="2" stroke-linejoin="round"/></svg></div><div><div style="font-weight:800;font-size:20px;color:'+c.tx+'">'+t.title+'</div><div style="font-size:11px;color:'+c.tx3+'">'+t.sub+'</div></div></div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span class="nym-price" id="nym-price" style="background:'+c.bg3+';border:1px solid '+c.brd+';color:'+c.tx2+'">NYM <span class="nym-price-val" style="color:'+c.tx+'">...</span></span><select id="langSel" onchange="setLang(this.value)" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:6px;padding:5px 8px;color:'+c.tx2+';font-size:12px;cursor:pointer;outline:none;font-family:Outfit,sans-serif">';for(var li=0;li<LANGS.length;li++){h+='<option value="'+LANGS[li][0]+'"'+(lang===LANGS[li][0]?' selected':'')+'>'+LANGS[li][1]+'</option>';}h+='</select><button onclick="toggleDark()" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:6px;padding:5px 8px;color:'+c.tx2+';font-size:14px;cursor:pointer;line-height:1">'+(dark?'\u2600':'\u263E')+'</button></div></div>';
+  if(page==='nodes'){h+='<div style="display:flex;gap:6px;margin-bottom:10px">'+ftab(t.all,filterMode===null,"setFM(null)")+ftab(t.mix,filterMode==='mixnode',"setFM('mixnode')",'#A78BFA')+ftab(t.entry,filterMode==='entry-gateway',"setFM('entry-gateway')",'#38BDF8')+ftab(t.exit,filterMode==='exit-gateway',"setFM('exit-gateway')",'#F472B6')+ftab((t.network||'Network'),page==='network',"setPage('network')",'#00E599')+'</div>';}else{h+='<div style="display:flex;gap:6px;margin-bottom:10px">'+ftab(t.all,false,"setPage('nodes')")+ftab((t.network||'Network'),true,"setPage('network')",'#00E599')+'</div>';}
+  h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:4px"><input id="si" type="text" placeholder="'+t.ph+'" style="width:100%;background:none;border:none;outline:none;padding:10px 12px;color:'+c.tx+';font-family:JetBrains Mono,monospace;font-size:13px"></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><div id="countline" style="font-size:10px;color:'+c.tx4+';font-family:JetBrains Mono,monospace"></div>'+(latestVer?'<div style="font-size:10px;font-family:JetBrains Mono,monospace;color:#00E599;background:#00E59912;border:1px solid #00E59930;border-radius:5px;padding:2px 8px">'+(t.latestBadge||'latest')+': v'+esc(latestVer)+'</div>':'')+'</div></div>';
+  document.getElementById('header').innerHTML=h;
+  updateNymPrice();
+  var si=document.getElementById('si');si.value=query;
+  var _debounceT=null;
+  si.addEventListener('input',function(){var v=this.value;if(_debounceT)clearTimeout(_debounceT);_debounceT=setTimeout(function(){query=v;selected=null;batchResults=null;batchChecking=false;batchSelected={};showLimit=50;history.replaceState(null,'','/');renderContent();},200);});
+}
+
+function renderContent(){
+  var t=T[lang]||T.en,c=C();
+  if(page==='network'){renderNetworkPage(t,c);return;}
+  var filtered=nodes.slice();
+  if(filterMode)filtered=filtered.filter(function(n){return n.mode===filterMode;});
+  if(query)filtered=filtered.filter(function(n){return searchMatch(n,query);});
+  var cl=document.getElementById('countline');
+  if(cl)cl.textContent=nodesLoaded?(filtered.length+' '+t.nodes):t.loading;
+  var _wide=(batchResults||batchChecking)?'max-width:1500px':'max-width:700px';
+  var _pad=isMobile()?'padding:0 12px':'padding:0 20px';
+  var h='<div style="position:relative;z-index:1;'+_wide+';margin:0 auto;'+_pad+'">';
+  if(batchChecking){
+    h+='<div style="padding:8px 0 12px"><button class="backbtn" onclick="goBackFromBatch()" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:10px;padding:10px 20px;color:'+c.tx+';font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Outfit,sans-serif;opacity:0.85"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+t.back+'</button></div>';
+    h+='<div style="padding:60px 0;text-align:center"><svg width="32" height="32" viewBox="0 0 24 24" style="animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10" stroke="'+c.bg3+'" stroke-width="3" fill="none"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#00E599" stroke-width="3" fill="none" stroke-linecap="round"/></svg><div style="color:'+c.tx2+';font-size:14px;margin-top:14px;font-weight:500">'+(t.batchChecking||'Checking nodes...').replace('{n}',window._batchN||'?')+'</div></div>';
+  }else if(batchResults){
+    h+='<div style="padding:8px 0 12px"><button class="backbtn" onclick="goBackFromBatch()" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:10px;padding:10px 20px;color:'+c.tx+';font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Outfit,sans-serif;opacity:0.85"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+t.back+'</button><span style="margin-left:12px;font-size:13px;color:'+c.tx3+'">'+batchResults.length+' '+t.nodes+'</span></div>';
+    var _maxCols=isMobile()?1:(isTablet()?3:6);
+    var _cols=Math.min(batchResults.length,_maxCols);
+    h+='<div style="display:grid;grid-template-columns:repeat('+_cols+',minmax(0,1fr));gap:'+(isMobile()?'10':'12')+'px">';
+    for(var bi=0;bi<batchResults.length;bi++){
+      h+='<div class="batchCard" onclick="openPopup('+bi+')" style="animation:fadeIn .3s forwards;cursor:pointer">'+renderDetailCard(batchResults[bi],t,c,'b'+bi,true)+'</div>';
+    }
+    h+='</div>';
+    h+='<div style="height:40px"></div>';
+  }else if(selected){
+    var r=selected;
+    h+='<div style="padding:8px 0 12px"><button class="backbtn" onclick="goBack()" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:10px;padding:10px 20px;color:'+c.tx+';font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Outfit,sans-serif;opacity:0.85"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+t.back+'</button></div>';
+    h+=renderDetailCard(r,t,c,'');
+    if(false){
+      h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:12px;padding:18px 20px;display:flex;align-items:center;gap:16px;margin-bottom:12px"><div style="position:relative;width:64px;height:64px;flex-shrink:0"><svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="'+c.bg3+'" stroke-width="5"/><circle cx="32" cy="32" r="28" fill="none" stroke="'+scc+'" stroke-width="5" stroke-dasharray="'+Math.round(175.9*s/100)+' 175.9" stroke-linecap="round" transform="rotate(-90 32 32)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:'+scc+'">'+s+'</div></div>';
+      h+='<div style="flex:1"><div style="font-weight:700;font-size:15px;color:'+c.tx+'">'+(fl?fl+' ':'')+esc(r.description?r.description.moniker:r.node_ip)+'</div><div style="font-size:11px;color:'+c.tx3+';font-family:JetBrains Mono,monospace;margin-top:2px">'+esc(r.node_ip)+(r.hostname?' &middot; '+esc(r.hostname):'')+'</div><div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">'+(r.mode?badge(r.mode,MC[r.mode]||c.tx3):'')+(r.wireguard_enabled?badge('WG','#A78BFA'):'')+(loc?badge(loc,c.tx3):'')+'</div></div></div>';
+      var vs=r.score?r.score.version:0,ps=r.score?r.score.ports:0,i6=r.score?r.score.ipv6:0,hs=r.score?r.score.hardware:0,ts=r.score?r.score.toc:0,eps=r.score?r.score.exit_policy:0;
+      var isExit=r.roles&&r.roles.exit_gateway;
+      if(isExit){h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">'+mini(t.version,vs,30,vs>=30)+mini(t.ports,ps,30,ps>=30)+mini(t.ipv6,i6,10,i6>=10)+mini(t.hw,hs,15,hs>=15)+mini((t.exitPolicy||'Exit Policy'),eps,15,eps>=15)+'</div>';
+      }else{h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px">'+mini(t.version,vs,30,vs>=30)+mini(t.ports,ps,30,ps>=30)+mini(t.ipv6,i6,20,i6>=20)+mini(t.hw,hs,20,hs>=20)+'</div>';}
+      var tocOk=r.toc&&r.toc.ok;
+      h+='<div style="background:'+(tocOk?'#00E59908':'#FF4D6A15')+';border:1px solid '+(tocOk?'#00E59930':'#FF4D6A40')+';border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">'+(tocOk?'\u2705':'\u26D4')+'</span><span style="font-size:13px;font-weight:600;color:'+(tocOk?'#00E599':'#FF4D6A')+'">T&C '+(tocOk?t.accepted:t.notAccepted)+'</span></div><span style="font-size:11px;color:'+(tocOk?'#00E599':'#FF4D6A')+';font-family:JetBrains Mono,monospace;font-weight:600">'+(tocOk?'\u00D71':'\u00D70 \u2192 Score: 0')+'</span></div>';
+      h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;overflow:hidden">';
+      h+='<div style="display:grid;grid-template-columns:2fr 1.2fr 1.2fr;padding:8px 14px;border-bottom:1px solid '+c.brd+'"><span style="font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600"></span><span style="font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600;text-align:right">'+t.actual+'</span><span style="font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600;text-align:right">'+t.required+'</span></div>';
+      h+=drow(t.version,r.version?r.version.current:'?',r.version?r.version.latest:'?',r.version?r.version.ok:false);
+      h+=drow(t.ports,r.ports?(r.ports.ok?(r.ports.total+' '+t.open):((r.ports.total-(r.ports.missing||[]).length)+'/'+r.ports.total)):'?',r.ports?r.ports.total+' '+t.open:'?',r.ports?r.ports.ok:false);
+      h+=drow('IPv6',r.ipv6?(r.ipv6.supported?t.supported:t.notSupported):'?',t.supported,r.ipv6?r.ipv6.ok:false);
+      var cpuA=r.hardware&&r.hardware.cpu_cores?r.hardware.cpu_cores+t.cores:'?'+t.cores;
+      var ramA=r.hardware&&r.hardware.ram_mb?r.hardware.ram_mb+t.mb:'?'+t.mb;
+      h+=drow(t.cpu,cpuA,rh.cpu_cores+t.cores,r.hardware?r.hardware.cpu_cores>=rh.cpu_cores:false);
+      h+=drow(t.ram,ramA,rh.ram_mb+t.mb,r.hardware?r.hardware.ram_mb>=rh.ram_mb:false);
+      h+=drow(t.toc,r.toc?(r.toc.accepted?t.accepted:t.notAccepted):'?',t.accepted,r.toc?r.toc.ok:false);
+      h+='</div>';
+      if(r.ports&&r.ports.missing&&r.ports.missing.length){
+        h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:12px 14px;margin-top:10px"><div style="font-size:12px;color:'+c.tx3+';margin-bottom:6px">'+t.missing+':</div><div style="display:flex;flex-wrap:wrap;gap:5px">';
+        for(var pi=0;pi<r.ports.missing.length;pi++)h+=badge(r.ports.missing[pi],'#FF4D6A');
+        h+='</div></div>';
+      }
+      // Exit Policy
+      if(r.exit_policy&&r.exit_policy.declared){
+        var ep=r.exit_policy;
+        h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:12px 14px;margin-top:10px">';
+        h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:'+c.tx3+'">'+(t.exitPolicy||'Exit Policy')+'</span>'+badge(ep.total+' '+(t.exitPolicyDesc||'declared standard ports'),'#00E599')+'</div>';
+        h+='<button onclick="toggleEP()" id="epToggle" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:6px;padding:3px 10px;color:'+c.tx2+';font-size:10px;cursor:pointer;font-family:Outfit,sans-serif">'+(t.exitPolicyShow||'Show all ports')+'</button></div>';
+        h+='<div id="epList" style="display:none;flex-wrap:wrap;gap:4px">';
+        for(var epi=0;epi<ep.ports.length;epi++){var epp=ep.ports[epi];h+=badge(epp.port+'/'+epp.proto+' '+epp.desc,'#00E599');}
+        h+='</div></div>';
+      }
+      // Tips
+      var tips=[];
+      if(r.version&&!r.version.ok){
+        var rels=window._releases||[];
+        var curParts=r.version.current.split('.');var latParts=r.version.latest.split('.');
+        var diff=parseInt(latParts[1]||0)-parseInt(curParts[1]||0);
+        if(diff<1)diff=1;
+        var steps='';
+        if(rels.length){
+          var show=rels.slice(0,Math.min(diff,rels.length));
+          for(var ri=show.length-1;ri>=0;ri--){
+            var isLast=ri===0;
+            steps+='<div style="display:flex;align-items:center;gap:8px;margin-top:5px"><a href="'+esc(show[ri].url)+'" target="_blank" style="font-family:JetBrains Mono,monospace;font-size:11px;color:'+(isLast?'#00E599':c.tx3)+';text-decoration:none">'+(show.length-ri)+'. '+esc(show[ri].tag.replace('nym-binaries-',''))+' \u2B07</a></div>';
+          }
+        }else{
+          steps='<div style="margin-top:4px"><a href="https://github.com/nymtech/nym/releases" target="_blank" style="font-size:11px;color:#38BDF8;text-decoration:none">GitHub Releases \u2197</a></div>';
+        }
+        tips.push({i:'\u2B06',c:'#FF4D6A',t:t.tipVer+' '+esc(r.version.latest)+' ('+diff+' '+(t.verBehind||'ver. behind')+')',d:'<div style="font-size:12px;color:'+c.tx3+';margin-bottom:2px">v'+esc(r.version.current)+' \u2192 v'+esc(r.version.latest)+'</div>'+steps});
+      }
+      if(r.ports&&r.ports.missing&&r.ports.missing.length){var cmd='sudo ufw allow '+r.ports.missing.join(' &amp;&amp; sudo ufw allow ');tips.push({i:'\uD83D\uDD13',c:'#FFB224',t:t.tipPorts,d:'<code style="font-size:11px;color:'+c.tx3+'">'+cmd+'</code>'});}
+      if(r.ipv6&&!r.ipv6.ok)tips.push({i:'\uD83C\uDF10',c:'#FFB224',t:t.tipIpv6,d:'<div style="font-size:11px;color:'+c.tx3+';line-height:1.6">\uD83D\uDCCC '+(t.tipIpv6Aaaa||'Already have IPv6? Add a AAAA DNS record')+'<br>\u2139 '+(t.tipIpv6_contact||'No IPv6? Enable it or contact your hosting provider')+'</div>'});
+      if(r.hardware&&r.hardware.available){var ht=[];if(r.hardware.cpu_cores>0&&r.hardware.cpu_cores<rh.cpu_cores)ht.push(t.cpu+': '+r.hardware.cpu_cores+' \u2192 '+rh.cpu_cores);if(r.hardware.ram_mb>0&&r.hardware.ram_mb<rh.ram_mb)ht.push(t.ram+': '+r.hardware.ram_mb+'MB \u2192 '+rh.ram_mb+'MB');if(ht.length)tips.push({i:'\uD83D\uDCBB',c:'#FFB224',t:t.tipHw,d:'<span style="font-size:11px;color:'+c.tx3+'">'+ht.join(', ')+'</span>'});}
+      if(r.toc&&!r.toc.ok)tips.push({i:'\uD83D\uDCDD',c:'#FF4D6A',t:t.tipToc,d:'<code style="font-size:11px;color:'+c.tx3+'">nym-node run --accept-operator-terms-and-conditions</code>'});
+      if(tips.length){
+        h+='<div style="margin-top:14px"><div style="font-size:13px;font-weight:600;color:'+c.tx+';margin-bottom:8px">\uD83D\uDCA1 '+t.tips+'</div>';
+        for(var ti=0;ti<tips.length;ti++){var tp=tips[ti];h+='<div class="tip" style="background:'+tp.c+'08;border:1px solid '+tp.c+'20;border-radius:10px;padding:12px 16px;margin-bottom:6px"><div style="font-size:13px;font-weight:600;color:'+tp.c+'">'+tp.i+' '+tp.t+'</div><div style="margin-top:6px">'+tp.d+'</div></div>';}
+        h+='</div>';
+      }
+    }
+    h+='<div style="height:40px"></div>';
+  }else if(checking){
+    h+='<div style="padding:40px 0;text-align:center"><svg width="22" height="22" viewBox="0 0 24 24" style="animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10" stroke="'+c.bg3+'" stroke-width="3" fill="none"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#00E599" stroke-width="3" fill="none" stroke-linecap="round"/></svg><span style="color:'+c.tx2+';font-size:13px;margin-left:8px">'+t.checking+'</span></div>';
+  }else{
+    h+='<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:30px">';
+    if(!nodesLoaded){h+='<div style="text-align:center;padding:40px;color:'+c.tx4+';font-size:13px">'+t.loading+'</div>';}
+    else if(!filtered.length){h+='<div style="text-align:center;padding:40px;color:'+c.tx4+';font-size:13px">'+t.noNodes+'</div>';}
+    else{
+      var _selN=selCount();
+      // Batch toolbar: show all / check selected / clear
+      if(query&&query.length>=3&&filtered.length>=2&&filtered.length<=BATCH_MAX){
+        h+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap'+(isMobile()?';flex-direction:column':'')+'">';
+        h+='<button class="batchBtn" onclick="doBatchCheck()" style="flex:1;min-width:'+(isMobile()?'auto':'200px')+';background:#00E59915;border:1px solid #00E59940;border-radius:10px;padding:11px 16px;color:#00E599;font-size:13px;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'+(t.showAllDetails||'Show all details')+' ('+filtered.length+')</button>';
+        if(_selN>0){
+          h+='<button class="batchBtn" onclick="doBatchCheckSelected()" style="background:#38BDF815;border:1px solid #38BDF840;border-radius:10px;padding:11px 16px;color:#38BDF8;font-size:13px;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif">'+(t.checkSelected||'Check selected')+' ('+_selN+')</button>';
+          h+='<button onclick="clearSel()" title="'+(t.clearSel||'Clear')+'" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:10px;padding:11px 14px;color:'+c.tx3+';font-size:13px;cursor:pointer;font-family:Outfit,sans-serif">\u2715</button>';
+        }
+        h+='</div>';
+      }else if(query&&query.length>=3&&filtered.length>BATCH_MAX){
+        h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:10px 14px;margin-bottom:8px;text-align:center;color:'+c.tx3+';font-size:12px">\u26A0 '+(t.batchTooMany||'Refine search (max '+BATCH_MAX+')')+'</div>';
+        if(_selN>0&&_selN<=BATCH_MAX){
+          h+='<button class="batchBtn" onclick="doBatchCheckSelected()" style="width:100%;background:#38BDF815;border:1px solid #38BDF840;border-radius:10px;padding:11px 16px;margin-bottom:8px;color:#38BDF8;font-size:13px;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif">'+(t.checkSelected||'Check selected')+' ('+_selN+')</button>';
+        }
+      }
+      var _showLimit=showLimit||100;
+      var max=Math.min(filtered.length,_showLimit);
+      for(var i=0;i<max;i++){var n=filtered[i];var vok=latestVer?(n.version===latestVer):true;var vc=vok?'#00E599':(n.version?'#FF4D6A':c.tx3);var nm=esc(n.moniker||n.ip);var nip=esc(n.ip);var nhost=n.hostname?esc(n.hostname):'';var nloc=n.location?n.location.toUpperCase():'';var nflag=flag(nloc);
+        var _isSel=!!batchSelected[n.node_id];
+        h+='<div class="nr" data-ip="'+nip+'" data-nid="'+n.node_id+'" style="background:'+c.bg2+';border:1px solid '+(_isSel?'#38BDF8':c.brd)+';border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:12px;cursor:pointer"><div onclick="toggleSel('+JSON.stringify(n.node_id)+',event)" style="width:18px;height:18px;border-radius:5px;border:1.5px solid '+(_isSel?'#38BDF8':c.tx4)+';background:'+(_isSel?'#38BDF8':'transparent')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer" title="select">'+(_isSel?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</div><div style="width:6px;height:6px;border-radius:50%;background:'+(MC[n.mode]||'#6B7280')+';flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:600;color:'+c.tx+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nm+'</span>'+(nflag?'<span style="font-size:14px">'+nflag+'</span>':'')+'</div><div style="font-family:JetBrains Mono,monospace;font-size:10px;color:'+c.tx3+';margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nip+(nhost?' &middot; '+nhost:'')+'</div></div>';
+        if(n.version)h+=badge('v'+esc(n.version),vc);
+        if(n.wg)h+=badge('WG','#A78BFA');
+        h+='</div>';
+      }
+      if(max<filtered.length)h+='<div style="text-align:center;padding:10px"><button onclick="showLimit+=50;renderContent()" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:8px;padding:8px 24px;color:'+c.tx2+';font-size:12px;cursor:pointer;font-family:Outfit,sans-serif">'+(_showLimit<filtered.length?'Show more ('+(filtered.length-_showLimit)+' remaining)':'')+'</button></div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
+  var _cel=document.getElementById('content');
+  _cel.innerHTML=h;
+  _cel.onclick=function(ev){var el=ev.target.closest('.nr');if(el&&!ev.target.closest('[title="select"]'))doCheck(el.getAttribute('data-ip'));};
+  _cel.onmouseover=function(ev){var el=ev.target.closest('.nr');if(el)el.style.borderColor='#00E599';};
+  _cel.onmouseout=function(ev){var el=ev.target.closest('.nr');if(el)el.style.borderColor=!!batchSelected[el.getAttribute('data-nid')]?'#38BDF8':C().brd;};
+}
+
+function renderDetailCard(r,t,c,key,compact){
+  key=key||'';
+  var h='';
+  var s=r.score?r.score.total:0,scc=sc(s),rh=r.min_hardware||{cpu_cores:2,ram_mb:4096};
+  var loc=r.auxiliary?r.auxiliary.location:'';var fl=flag(loc);
+  if(r.error&&!r.version){
+    h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:50%;background:#6B728015;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#6B7280;flex-shrink:0">0</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:'+c.tx+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.description&&r.description.moniker?r.description.moniker:(r.node_ip||'?'))+'</div><div style="font-size:10px;color:#6B7280;margin-top:2px;font-style:italic">'+esc(deadPhrase())+'</div><div style="font-size:9px;color:'+c.tx4+';font-family:JetBrains Mono,monospace;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.node_ip||'?')+'</div></div></div>';
+    return h;
+  }
+  if(compact){
+    // Compact grid card (click handled by outer .batchCard wrapper)
+    h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:12px;padding:12px;transition:border-color .15s;height:100%;display:flex;flex-direction:column" onmouseenter="this.style.borderColor=\'#00E599\'" onmouseleave="this.style.borderColor=\''+c.brd+'\'">';
+    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="position:relative;width:46px;height:46px;flex-shrink:0"><svg width="46" height="46" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="'+c.bg3+'" stroke-width="6"/><circle cx="32" cy="32" r="28" fill="none" stroke="'+scc+'" stroke-width="6" stroke-dasharray="'+Math.round(175.9*s/100)+' 175.9" stroke-linecap="round" transform="rotate(-90 32 32)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:'+scc+'">'+s+'</div></div>';
+    h+='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:'+c.tx+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(fl?fl+' ':'')+esc(r.description?r.description.moniker:r.node_ip)+'</div><div style="font-size:9px;color:'+c.tx3+';font-family:JetBrains Mono,monospace;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.node_ip)+'</div></div></div>';
+    var vs=r.score?r.score.version:0,ps=r.score?r.score.ports:0,i6=r.score?r.score.ipv6:0,hs=r.score?r.score.hardware:0,eps=r.score?r.score.exit_policy:0;
+    var isExit=r.roles&&r.roles.exit_gateway;
+    // 2-col mini grid
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">'+mini(t.version,vs,30,vs>=30)+mini(t.ports,ps,30,ps>=30)+mini(t.ipv6,i6,isExit?10:20,i6>=(isExit?10:20))+mini(t.hw,hs,isExit?15:20,hs>=(isExit?15:20))+'</div>';
+    if(isExit)h+='<div style="margin-bottom:8px">'+mini((t.exitPolicy||'Exit Policy'),eps,15,eps>=15)+'</div>';
+    var tocOk=r.toc&&r.toc.ok;
+    h+='<div style="background:'+(tocOk?'#00E59908':'#FF4D6A15')+';border:1px solid '+(tocOk?'#00E59930':'#FF4D6A40')+';border-radius:8px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;color:'+(tocOk?'#00E599':'#FF4D6A')+'"><span>'+(tocOk?'\u2705':'\u26D4')+' T&C</span><span style="font-family:JetBrains Mono,monospace">'+(tocOk?'\u00D71':'\u00D70')+'</span></div>';
+    if(r.ports&&r.ports.missing&&r.ports.missing.length){
+      h+='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px">';
+      for(var pmi=0;pmi<Math.min(r.ports.missing.length,6);pmi++)h+=badge(r.ports.missing[pmi],'#FF4D6A');
+      if(r.ports.missing.length>6)h+='<span style="font-size:9px;color:#FF4D6A">+'+(r.ports.missing.length-6)+'</span>';
+      h+='</div>';
+    }
+    var flex='margin-top:auto;padding-top:8px;font-size:9px;color:'+c.tx4+';text-align:center';
+    h+='<div style="'+flex+'">'+(r.version?'v'+esc(r.version.current):'')+(r.mode?' &middot; '+esc(r.mode):'')+'</div>';
+    h+='</div>';
+    return h;
+  }
+  h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:12px;padding:18px 20px;display:flex;align-items:center;gap:16px;margin-bottom:12px"><div style="position:relative;width:64px;height:64px;flex-shrink:0"><svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="'+c.bg3+'" stroke-width="5"/><circle cx="32" cy="32" r="28" fill="none" stroke="'+scc+'" stroke-width="5" stroke-dasharray="'+Math.round(175.9*s/100)+' 175.9" stroke-linecap="round" transform="rotate(-90 32 32)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:'+scc+'">'+s+'</div></div>';
+  h+='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px;color:'+c.tx+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(fl?fl+' ':'')+esc(r.description?r.description.moniker:r.node_ip)+'</div><div style="font-size:11px;color:'+c.tx3+';font-family:JetBrains Mono,monospace;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.node_ip)+(r.hostname?' &middot; '+esc(r.hostname):'')+'</div><div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">'+(r.mode?badge(r.mode,MC[r.mode]||c.tx3):'')+(r.wireguard_enabled?badge('WG','#A78BFA'):'')+(loc?badge(loc,c.tx3):'')+'</div></div></div>';
+  var vs=r.score?r.score.version:0,ps=r.score?r.score.ports:0,i6=r.score?r.score.ipv6:0,hs=r.score?r.score.hardware:0,eps=r.score?r.score.exit_policy:0;
+  var isExit=r.roles&&r.roles.exit_gateway;
+  var _mcol=isMobile()?2:(isExit?5:4);
+  if(isExit){h+='<div style="display:grid;grid-template-columns:repeat('+_mcol+',1fr);gap:6px;margin-bottom:12px">'+mini(t.version,vs,30,vs>=30)+mini(t.ports,ps,30,ps>=30)+mini(t.ipv6,i6,10,i6>=10)+mini(t.hw,hs,15,hs>=15)+mini((t.exitPolicy||'Exit Policy'),eps,15,eps>=15)+'</div>';
+  }else{h+='<div style="display:grid;grid-template-columns:repeat('+_mcol+',1fr);gap:6px;margin-bottom:12px">'+mini(t.version,vs,30,vs>=30)+mini(t.ports,ps,30,ps>=30)+mini(t.ipv6,i6,20,i6>=20)+mini(t.hw,hs,20,hs>=20)+'</div>';}
+  var tocOk=r.toc&&r.toc.ok;
+  h+='<div style="background:'+(tocOk?'#00E59908':'#FF4D6A15')+';border:1px solid '+(tocOk?'#00E59930':'#FF4D6A40')+';border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:16px">'+(tocOk?'\u2705':'\u26D4')+'</span><span style="font-size:13px;font-weight:600;color:'+(tocOk?'#00E599':'#FF4D6A')+'">T&C '+(tocOk?t.accepted:t.notAccepted)+'</span></div><span style="font-size:11px;color:'+(tocOk?'#00E599':'#FF4D6A')+';font-family:JetBrains Mono,monospace;font-weight:600;white-space:nowrap">'+(tocOk?'\u00D71':'\u00D70 \u2192 Score: 0')+'</span></div>';
+  h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;overflow:hidden">';
+  h+='<div style="display:grid;grid-template-columns:2fr 1.2fr 1.2fr;padding:8px 14px;border-bottom:1px solid '+c.brd+'"><span style="font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600"></span><span style="font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600;text-align:right">'+t.actual+'</span><span style="font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600;text-align:right">'+t.required+'</span></div>';
+  h+=drow(t.version,r.version?r.version.current:'?',r.version?r.version.latest:'?',r.version?r.version.ok:false);
+  h+=drow(t.ports,r.ports?(r.ports.ok?(r.ports.total+' '+t.open):((r.ports.total-(r.ports.missing||[]).length)+'/'+r.ports.total)):'?',r.ports?r.ports.total+' '+t.open:'?',r.ports?r.ports.ok:false);
+  var _i6st=r.ipv6&&r.ipv6.status?r.ipv6.status:'';
+  var _i6src=r.ipv6&&r.ipv6.source?r.ipv6.source:'';
+  var _i6detail=_i6st+(_i6src?' via '+_i6src:'');
+  var _i6lbl=r.ipv6?(r.ipv6.supported?(t.supported+(_i6detail?' ('+_i6detail+')':'')):(_i6st==='absent'?t.notSupported:(_i6st==='unknown'?'? (unknown)':t.notSupported))):'?';
+  h+=drow('IPv6',_i6lbl,t.supported,r.ipv6?r.ipv6.ok:false);
+  var cpuA=r.hardware&&r.hardware.cpu_cores?r.hardware.cpu_cores+t.cores:'?'+t.cores;
+  var ramA=r.hardware&&r.hardware.ram_mb?r.hardware.ram_mb+t.mb:'?'+t.mb;
+  h+=drow(t.cpu,cpuA,rh.cpu_cores+t.cores,r.hardware?r.hardware.cpu_cores>=rh.cpu_cores:false);
+  h+=drow(t.ram,ramA,rh.ram_mb+t.mb,r.hardware?r.hardware.ram_mb>=rh.ram_mb:false);
+  h+=drow(t.toc,r.toc?(r.toc.accepted?t.accepted:t.notAccepted):'?',t.accepted,r.toc?r.toc.ok:false);
+  h+='</div>';
+  if(r.ports&&r.ports.missing&&r.ports.missing.length){
+    h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:12px 14px;margin-top:10px"><div style="font-size:12px;color:'+c.tx3+';margin-bottom:6px">'+t.missing+':</div><div style="display:flex;flex-wrap:wrap;gap:5px">';
+    for(var pi=0;pi<r.ports.missing.length;pi++)h+=badge(r.ports.missing[pi],'#FF4D6A');
+    h+='</div></div>';
+  }
+  if(r.exit_policy){
+    var ep=r.exit_policy;var _epSt=ep.status||'';
+    if(ep.declared){
+      h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:12px 14px;margin-top:10px">';
+      h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:'+c.tx3+'">'+(t.exitPolicy||'Exit Policy')+'</span>'+badge(ep.total+' '+(t.exitPolicyDesc||'declared standard ports'),'#00E599')+'</div>';
+      h+='<button onclick="toggleEP(\''+key+'\')" id="epToggle'+key+'" style="background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:6px;padding:3px 10px;color:'+c.tx2+';font-size:10px;cursor:pointer;font-family:Outfit,sans-serif">'+(t.exitPolicyShow||'Show all ports')+'</button></div>';
+      h+='<div id="epList'+key+'" style="display:none;flex-wrap:wrap;gap:4px">';
+      for(var epi=0;epi<ep.ports.length;epi++){var epp=ep.ports[epi];h+=badge(epp.port+'/'+epp.proto+' '+epp.desc,'#00E599');}
+      h+='</div></div>';
+    }else if(_epSt==='unknown'){
+      h+='<div style="background:#FFB22408;border:1px solid #FFB22420;border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;align-items:center;gap:8px"><span style="font-size:14px">\u2753</span><span style="font-size:12px;color:#FFB224;font-weight:600">'+(t.exitPolicy||'Exit Policy')+': could not verify (timeout)</span></div>';
+    }else if(ep.declared===false){
+      h+='<div style="background:#FF4D6A08;border:1px solid #FF4D6A20;border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;align-items:center;gap:8px"><span style="font-size:14px">\u26D4</span><span style="font-size:12px;color:#FF4D6A;font-weight:600">'+(t.exitPolicy||'Exit Policy')+': not declared</span></div>';
+    }
+  }
+  var tips=[];
+  if(r.version&&!r.version.ok){
+    var rels=window._releases||[];
+    var curParts=r.version.current.split('.');var latParts=r.version.latest.split('.');
+    var diff=parseInt(latParts[1]||0)-parseInt(curParts[1]||0);
+    if(diff<1)diff=1;
+    var steps='';
+    if(rels.length){
+      var show=rels.slice(0,Math.min(diff,rels.length));
+      for(var ri=show.length-1;ri>=0;ri--){
+        var isLast=ri===0;
+        steps+='<div style="display:flex;align-items:center;gap:8px;margin-top:5px"><a href="'+esc(show[ri].url)+'" target="_blank" style="font-family:JetBrains Mono,monospace;font-size:11px;color:'+(isLast?'#00E599':c.tx3)+';text-decoration:none">'+(show.length-ri)+'. '+esc(show[ri].tag.replace('nym-binaries-',''))+' \u2B07</a></div>';
+      }
+    }else{
+      steps='<div style="margin-top:4px"><a href="https://github.com/nymtech/nym/releases" target="_blank" style="font-size:11px;color:#38BDF8;text-decoration:none">GitHub Releases \u2197</a></div>';
+    }
+    tips.push({i:'\u2B06',c:'#FF4D6A',t:t.tipVer+' '+esc(r.version.latest)+' ('+diff+' '+(t.verBehind||'ver. behind')+')',d:'<div style="font-size:12px;color:'+c.tx3+';margin-bottom:2px">v'+esc(r.version.current)+' \u2192 v'+esc(r.version.latest)+'</div>'+steps});
+  }
+  if(r.ports&&r.ports.missing&&r.ports.missing.length){var cmd='sudo ufw allow '+r.ports.missing.join(' &amp;&amp; sudo ufw allow ');tips.push({i:'\uD83D\uDD13',c:'#FFB224',t:t.tipPorts,d:'<code style="font-size:11px;color:'+c.tx3+'">'+cmd+'</code>'});}
+  if(r.ipv6&&!r.ipv6.ok)tips.push({i:'\uD83C\uDF10',c:'#FFB224',t:t.tipIpv6,d:'<div style="font-size:11px;color:'+c.tx3+';line-height:1.6">\uD83D\uDCCC '+(t.tipIpv6Aaaa||'Already have IPv6? Add a AAAA DNS record')+'<br>\u2139 '+(t.tipIpv6_contact||'No IPv6? Enable it or contact your hosting provider')+'</div>'});
+  if(r.hardware&&r.hardware.available){var ht=[];if(r.hardware.cpu_cores>0&&r.hardware.cpu_cores<rh.cpu_cores)ht.push(t.cpu+': '+r.hardware.cpu_cores+' \u2192 '+rh.cpu_cores);if(r.hardware.ram_mb>0&&r.hardware.ram_mb<rh.ram_mb)ht.push(t.ram+': '+r.hardware.ram_mb+'MB \u2192 '+rh.ram_mb+'MB');if(ht.length)tips.push({i:'\uD83D\uDCBB',c:'#FFB224',t:t.tipHw,d:'<span style="font-size:11px;color:'+c.tx3+'">'+ht.join(', ')+'</span>'});}
+  if(r.toc&&!r.toc.ok)tips.push({i:'\uD83D\uDCDD',c:'#FF4D6A',t:t.tipToc,d:'<code style="font-size:11px;color:'+c.tx3+'">nym-node run --accept-operator-terms-and-conditions</code>'});
+  if(tips.length){
+    h+='<div style="margin-top:14px"><div style="font-size:13px;font-weight:600;color:'+c.tx+';margin-bottom:8px">\uD83D\uDCA1 '+t.tips+'</div>';
+    for(var ti=0;ti<tips.length;ti++){var tp=tips[ti];h+='<div class="tip" style="background:'+tp.c+'08;border:1px solid '+tp.c+'20;border-radius:10px;padding:12px 16px;margin-bottom:6px"><div style="font-size:13px;font-weight:600;color:'+tp.c+'">'+tp.i+' '+tp.t+'</div><div style="margin-top:6px">'+tp.d+'</div></div>';}
+    h+='</div>';
+  }
+  return h;
+}
+
+function doBatchCheck(){
+  var filtered=nodes.slice();
+  if(filterMode)filtered=filtered.filter(function(n){return n.mode===filterMode;});
+  if(query)filtered=filtered.filter(function(n){return searchMatch(n,query);});
+  if(!filtered.length||filtered.length>BATCH_MAX)return;
+  var ids=[];
+  for(var i=0;i<filtered.length;i++){if(filtered[i].node_id!==undefined&&filtered[i].node_id!=='')ids.push(filtered[i].node_id);}
+  if(!ids.length)return;
+  window._batchN=ids.length;
+  batchChecking=true;batchResults=null;selected=null;renderContent();
+  fetch('/api/check-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids})}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){
+    batchChecking=false;
+    if(d&&d.results){
+      d.results.sort(function(a,b){return (b.score?b.score.total:0)-(a.score?a.score.total:0);});
+      batchResults=d.results;
+    }else{
+      alert('Batch check failed: '+(d&&d.error?d.error:'unknown error'));
+    }
+    renderContent();
+  }).catch(function(e){batchChecking=false;alert('Error: '+e);renderContent();});
+}
+function doBatchCheckSelected(){
+  var ids=[];
+  for(var k in batchSelected){if(batchSelected[k]){var x=parseInt(k,10);if(!isNaN(x))ids.push(x);}}
+  if(!ids.length||ids.length>BATCH_MAX)return;
+  window._batchN=ids.length;
+  batchChecking=true;batchResults=null;selected=null;renderContent();
+  fetch('/api/check-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids})}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){
+    batchChecking=false;
+    if(d&&d.results){
+      d.results.sort(function(a,b){return (b.score?b.score.total:0)-(a.score?a.score.total:0);});
+      batchResults=d.results;
+    }else{
+      alert('Batch check failed: '+(d&&d.error?d.error:'unknown error'));
+    }
+    renderContent();
+  }).catch(function(e){batchChecking=false;alert('Error: '+e);renderContent();});
+}
+function goBackFromBatch(){batchResults=null;batchChecking=false;popupResult=null;renderPopup();renderContent();}
+function openPopup(idx){if(!batchResults||!batchResults[idx])return;popupResult=batchResults[idx];renderPopup();}
+function closePopup(){popupResult=null;renderPopup();}
+function renderPopup(){
+  var el=document.getElementById('popup');if(!el)return;
+  if(!popupResult){el.innerHTML='';return;}
+  var t=T[lang]||T.en,c=C();
+  var _mob=isMobile();
+  var _ovPad=_mob?'padding:10px':'padding:40px 20px';
+  var _modPad=_mob?'padding:40px 14px 16px':'padding:24px 24px 20px';
+  var h='<div onclick="closePopup()" style="position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:flex-start;justify-content:center;'+_ovPad+';overflow-y:auto;animation:fadeIn .2s forwards">';
+  h+='<div onclick="event.stopPropagation()" style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:16px;'+_modPad+';max-width:680px;width:100%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:fadeIn .25s forwards">';
+  h+='<button onclick="closePopup()" style="position:absolute;top:12px;right:12px;background:'+c.bg3+';border:1px solid '+c.brd+';border-radius:8px;width:32px;height:32px;color:'+c.tx+';font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;font-family:Outfit,sans-serif">\u2715</button>';
+  h+=renderDetailCard(popupResult,t,c,'popup',false);
+  h+='</div></div>';
+  el.innerHTML=h;
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&popupResult)closePopup();});
+
+var _resizeT=null;
+window.addEventListener('resize',function(){
+  if(_resizeT)clearTimeout(_resizeT);
+  _resizeT=setTimeout(function(){renderContent();if(popupResult)renderPopup();},150);
+});
+function loadNodes(){fetch('/api/nodes').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){nodes=d.nodes||[];for(var i=0;i<nodes.length;i++){nodes[i].moniker=nodes[i].moniker||('Node '+nodes[i].node_id);}nodesLoaded=true;renderContent();}).catch(function(e){console.error(e);nodesLoaded=true;renderContent();});}
+function loadRef(){fetch('/api/reference').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){latestVer=d.latest_version||'';window._releases=d.releases||[];renderContent();}).catch(function(){});}
+function doCheck(ip){checking=true;selected=null;renderContent();history.replaceState(null,'','/?node='+encodeURIComponent(ip));fetch('/api/check?target='+encodeURIComponent(ip)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){selected=d;checking=false;renderContent();}).catch(function(e){selected={error:String(e),node_ip:ip,score:{total:0}};checking=false;renderContent();});}
+
+function goBack(){selected=null;history.replaceState(null,'','/');renderContent();}
+function setLang(l){lang=l;localStorage.setItem('nymLang',l);renderHeader();renderContent();}
+
+var _nymP=null;
+function fetchNymPrice(){
+  fetch('/api/price')
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+  .then(function(d){
+    if(d&&d.usd){_nymP=d;updateNymPrice();}
+  }).catch(function(){});
+}
+function updateNymPrice(){
+  var el=document.getElementById('nym-price');
+  if(!el||!_nymP)return;
+  var c=C(),price=_nymP.usd,change=_nymP.usd_24h_change;
+  var dir=change>=0?'up':'down';
+  var arrow=change>=0?'\u25B2':'\u25BC';
+  var cc=change>=0?'#00E599':'#FF4D6A';
+  el.style.background=c.bg3;el.style.borderColor=c.brd;el.style.color=c.tx2;
+  el.innerHTML='NYM <span class="nym-price-val" style="color:'+c.tx+'">$'+price.toFixed(4)+'</span>'+
+    '<span class="nym-price-change" style="color:'+cc+'">'+arrow+' '+Math.abs(change).toFixed(2)+'%</span>';
+}
+fetchNymPrice();setInterval(fetchNymPrice,300000);
+
+function toggleEP(key){key=key||'';var el=document.getElementById('epList'+key);var btn=document.getElementById('epToggle'+key);if(!el||!btn)return;var t=T[lang]||T.en;if(el.style.display==='none'||!el.style.display){el.style.display='flex';btn.textContent=t.exitPolicyHide||'Hide ports';}else{el.style.display='none';btn.textContent=t.exitPolicyShow||'Show all ports';}}
+function toggleDark(){dark=!dark;localStorage.setItem('nymDark',String(dark));renderHeader();renderContent();}
+function setFM(m){filterMode=filterMode===m?null:m;selected=null;renderContent();}
+function setPage(p){page=p;if(p==='network'&&!netStats&&!netLoading)loadNetStats();renderHeader();renderContent();}
+function loadNetStats(){
+  netLoading=true;renderContent();
+  fetch('/api/network-stats').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){netStats=d;netLoading=false;renderContent();}).catch(function(){netLoading=false;renderContent();});
+}
+function renderNetworkPage(t,c){
+  var el=document.getElementById('content');
+  if(netLoading||!netStats){el.innerHTML='<div style="max-width:700px;margin:0 auto;padding:20px;text-align:center;color:'+c.tx3+';font-family:JetBrains Mono,monospace;font-size:12px">Loading...</div>';return;}
+  var s=netStats,total=s.total||0;
+  var h='<div style="position:relative;z-index:1;max-width:700px;margin:0 auto;padding:0 20px 40px">';
+  // Top metrics
+  var compliant=s.fully_compliant||0;
+  var pct=total>0?Math.round(compliant/total*100):0;
+  h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">';
+  h+=statBox(total,t.totalNodes||'Total Nodes',c,'#00E599');
+  h+=statBox(pct+'%',(t.compliance||'Fully compliant'),c,pct>=70?'#00E599':pct>=40?'#FFB224':'#FF4D6A');
+  h+=statBox(s.toc?(s.toc.accepted||0):0,t.tocAccepted||'T&C Accepted',c,'#38BDF8');
+  h+=statBox(s.ipv6?(s.ipv6.enabled||0):0,t.ipv6Enabled||'IPv6 Enabled',c,'#A78BFA');
+  h+='</div>';
+  // Top issues
+  if(s.top_issues&&s.top_issues.length){
+    h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;overflow:hidden;margin-bottom:12px">';
+    h+='<div style="padding:10px 16px;border-bottom:1px solid '+c.brd+';font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600">'+(t.issues||'Top Issues')+'</div>';
+    for(var i=0;i<s.top_issues.length;i++){
+      var issue=s.top_issues[i],pctI=total>0?Math.round(issue.count/total*100):0;
+      h+='<div style="padding:10px 16px;border-bottom:1px solid '+c.brd+';display:flex;align-items:center;gap:12px">';
+      h+='<div style="flex:1"><div style="font-size:12px;color:'+c.tx+';margin-bottom:4px">'+(issue.key&&t[issue.key]?t[issue.key]:issue.label)+'</div>';
+      h+='<div style="height:4px;background:'+c.bg3+';border-radius:2px"><div style="height:4px;background:#FF4D6A;border-radius:2px;width:'+pctI+'%"></div></div></div>';
+      h+='<div style="font-family:JetBrains Mono,monospace;font-size:12px;color:#FF4D6A;min-width:60px;text-align:right">'+issue.count+' <span style="font-size:10px;color:'+c.tx3+'">'+pctI+'%</span></div>';
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+  // Version breakdown
+  if(s.version){
+    h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;overflow:hidden;margin-bottom:12px">';
+    h+='<div style="padding:10px 16px;border-bottom:1px solid '+c.brd+';font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600">'+(t.verDist||'Version Distribution')+'</div>';
+    var vrows=[[t.verOk||'Up to date',s.version.current,'#00E599'],[t.ver1||'1 behind',s.version.behind_1,'#FFB224'],[t.ver2||'2 behind',s.version.behind_2,'#FF8C42'],[t.ver3||'3 behind',s.version.behind_3,'#FF4D6A'],[t.ver4||'4+ behind',s.version.behind_4plus,'#9CA3AF']];
+    for(var vi=0;vi<vrows.length;vi++){
+      var vr=vrows[vi],vpct=total>0?Math.round(vr[1]/total*100):0;
+      h+='<div style="padding:8px 16px;border-bottom:1px solid '+c.brd+';display:flex;align-items:center;gap:10px">';
+      h+='<div style="width:80px;font-size:11px;color:'+c.tx2+'">'+vr[0]+'</div>';
+      h+='<div style="flex:1;height:4px;background:'+c.bg3+';border-radius:2px"><div style="height:4px;background:'+vr[2]+';border-radius:2px;width:'+vpct+'%"></div></div>';
+      h+='<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:'+vr[2]+';width:60px;text-align:right">'+vr[1]+'</div>';
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+  // Mode distribution
+  if(s.by_mode){
+    h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;overflow:hidden;margin-bottom:12px">';
+    h+='<div style="padding:10px 16px;border-bottom:1px solid '+c.brd+';font-size:10px;color:'+c.tx4+';text-transform:uppercase;letter-spacing:.08em;font-weight:600">'+(t.distribution||'Node Distribution')+'</div>';
+    var mrows=[[t.mix||'Mixnode',s.by_mode.mixnode||0,'#A78BFA'],[t.entryGw||'Entry Gateway',s.by_mode['entry-gateway']||0,'#38BDF8'],[t.exitGw||'Exit Gateway',s.by_mode['exit-gateway']||0,'#F472B6']];
+    for(var mi=0;mi<mrows.length;mi++){
+      var mr=mrows[mi],mpct=total>0?Math.round(mr[1]/total*100):0;
+      h+='<div style="padding:8px 16px;border-bottom:1px solid '+c.brd+';display:flex;align-items:center;gap:10px">';
+      h+='<div style="width:100px;font-size:11px;color:'+c.tx2+'">'+mr[0]+'</div>';
+      h+='<div style="flex:1;height:4px;background:'+c.bg3+';border-radius:2px"><div style="height:4px;background:'+mr[2]+';border-radius:2px;width:'+mpct+'%"></div></div>';
+      h+='<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:'+mr[2]+';width:80px;text-align:right">'+mr[1]+' ('+mpct+'%)</div>';
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+  
+  h+='</div>';
+  el.innerHTML=h;
+}
+function statBox(val,label,c,color){
+  return '<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:16px;text-align:center"><div style="font-family:JetBrains Mono,monospace;font-size:24px;font-weight:700;color:'+color+'">'+val+'</div><div style="font-size:11px;color:'+c.tx3+';margin-top:4px">'+label+'</div></div>';
+}
+renderHeader();loadNodes();loadRef();try{fetch('/api/hit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:location.pathname+location.search,lang:lang})}).catch(function(){});}catch(e){}
+var pp=new URLSearchParams(window.location.search);var np=pp.get('node');if(np)doCheck(np);
+</script>
+</body>
+</html>

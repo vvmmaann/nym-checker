@@ -36,7 +36,7 @@
 <body>
 <div class="wrap">
   <h1>Nym Checker / Stats</h1>
-  <div class="sub">Visit analytics. IPs are hashed with daily salt for privacy.</div>
+  <div class="sub">Visit analytics. IPs are hashed with persistent salt for privacy.</div>
 
   <div class="auth">
     <input id="tok" type="password" placeholder="Admin token" autofocus>
@@ -78,7 +78,7 @@ function load(){
     return r.json();
   }).then(function(d){
     if(d.error){document.getElementById('err').textContent=d.error;return}
-    localStorage.setItem('nymStatsTok',tok);
+    sessionStorage.setItem('nymStatsTok',tok);
     document.getElementById('content').style.display='block';
     document.getElementById('total').textContent=d.total;
     document.getElementById('unique').textContent=d.unique;
@@ -99,7 +99,7 @@ function load(){
     fill('ua',d.by_ua||[]);
   }).catch(function(e){document.getElementById('err').textContent='Failed: '+e.message});
 }
-var saved=localStorage.getItem('nymStatsTok');
+var saved=sessionStorage.getItem('nymStatsTok');
 if(saved){document.getElementById('tok').value=saved;load();}
 </script>
 </body>

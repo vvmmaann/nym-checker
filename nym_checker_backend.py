@@ -13,6 +13,65 @@ ADMIN_TOKEN = os.environ.get("NYM_CHECKER_TOKEN", "")
 LOCALHOST_IPS = {"127.0.0.1", "::1", "localhost"}
 MAX_TARGET_LEN = 253  # max DNS hostname length
 
+# Env-driven config (P3.2)
+def _env_bool(name, default=False):
+    v = os.environ.get(name, "").strip().lower()
+    if not v:
+        return default
+    return v in ("1", "true", "yes", "on")
+
+def _env_set(name, default=None):
+    v = os.environ.get(name, "").strip()
+    if not v:
+        return set(default or [])
+    return {x.strip() for x in v.split(",") if x.strip()}
+
+TRUSTED_PROXIES = _env_set("NYM_TRUSTED_PROXIES")
+TRUST_XFF = _env_bool("NYM_TRUST_XFF", False)
+IPV6_AGENT_URL = (os.environ.get("IPV6_AGENT_URL") or "").strip() or None
+ALLOW_INSECURE_IPV6_AGENT = _env_bool("ALLOW_INSECURE_IPV6_AGENT", False)
+SMTP_RESULTS_FILE_PATH = os.environ.get("SMTP_RESULTS_FILE", "/opt/nym-probe/latest_smtp.json")
+SMTP_STALE_SECONDS = int(os.environ.get("SMTP_STALE_SECONDS", str(3600 * 36)))
+
+# Resolved at startup (validated below)
+_ipv6_agent_enabled = False  # set by _validate_security_config
+_ipv6_agent_secure = False
+
+def _validate_security_config():
+    """Validate env config at startup. Logs warnings, disables features safely."""
+    global TRUST_XFF, _ipv6_agent_enabled, _ipv6_agent_secure
+    msgs = []
+    # XFF needs trusted proxies
+    if TRUST_XFF and not TRUSTED_PROXIES:
+        msgs.append("[!] NYM_TRUST_XFF=1 but NYM_TRUSTED_PROXIES is empty - forcing TRUST_XFF=False")
+        TRUST_XFF = False
+    # IPv6 agent: require https unless explicitly opted in
+    if IPV6_AGENT_URL:
+        if IPV6_AGENT_URL.startswith("https://"):
+            _ipv6_agent_enabled = True
+            _ipv6_agent_secure = True
+        elif IPV6_AGENT_URL.startswith("http://"):
+            if ALLOW_INSECURE_IPV6_AGENT:
+                _ipv6_agent_enabled = True
+                _ipv6_agent_secure = False
+                msgs.append(f"[!] IPV6_AGENT_URL is plain HTTP and ALLOW_INSECURE_IPV6_AGENT=1; "
+                            f"using insecure transport (degraded source)")
+            else:
+                _ipv6_agent_enabled = False
+                msgs.append(f"[!] IPV6_AGENT_URL is plain HTTP without ALLOW_INSECURE_IPV6_AGENT=1; "
+                            f"agent disabled. Returning 'unknown' for IPv6 status.")
+                try:
+                    sec_log("insecure_agent_blocked", "self", {"url_scheme": "http"})
+                except Exception:
+                    pass
+        else:
+            msgs.append(f"[!] IPV6_AGENT_URL has unsupported scheme; agent disabled")
+            _ipv6_agent_enabled = False
+    else:
+        _ipv6_agent_enabled = False
+    for m in msgs:
+        print(m)
+
 def _host_for_url(ip):
     """Wrap IPv6 addresses in brackets for use in URLs."""
     return f"[{ip}]" if ":" in ip else ip
@@ -56,13 +115,60 @@ def _rl_check(buckets, max_req, client_ip):
     bucket.append(now)
     return True
 
-TRUSTED_PROXIES = {"127.0.0.1", "::1"}
+def _is_valid_ip(s):
+    """True if string parses as a valid IP (v4 or v6)."""
+    if not s:
+        return False
+    try:
+        ipaddress.ip_address(s)
+        return True
+    except (ValueError, TypeError):
+        return False
 
 def _real_ip(request: Request):
-    """Extract real client IP. Only trust forwarding headers from known reverse proxies."""
+    """
+    Extract real client IP with hardened proxy-header trust.
+    - Only trust forwarding headers from peers in TRUSTED_PROXIES (env-driven).
+    - In iter1: only X-Real-IP. X-Forwarded-For ignored unless TRUST_XFF=1 + trusted peer.
+    - Any invalid header value → fallback to request.client.host. Never fail the request.
+    """
     direct = request.client.host if request.client else "unknown"
-    if direct in TRUSTED_PROXIES:
-        return request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For","").split(",")[0].strip() or direct
+    if direct not in TRUSTED_PROXIES:
+        # Direct request, ignore proxy headers
+        if request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For"):
+            try:
+                sec_log("proxy_header_untrusted", direct, {
+                    "real_ip_present": bool(request.headers.get("X-Real-IP")),
+                    "xff_present": bool(request.headers.get("X-Forwarded-For")),
+                })
+            except Exception:
+                pass
+        return direct
+    # Trusted peer: read X-Real-IP first
+    real_ip = (request.headers.get("X-Real-IP") or "").strip()
+    if real_ip:
+        if _is_valid_ip(real_ip):
+            return real_ip
+        try:
+            sec_log("proxy_header_invalid", direct, {"header": "X-Real-IP", "value": real_ip[:64]})
+        except Exception:
+            pass
+    # Optional XFF (off by default in iter1)
+    if TRUST_XFF:
+        xff = (request.headers.get("X-Forwarded-For") or "").strip()
+        if xff:
+            # Right-to-left: drop trusted proxies, take first untrusted
+            hops = [h.strip() for h in xff.split(",") if h.strip()]
+            for hop in reversed(hops):
+                if hop in TRUSTED_PROXIES:
+                    continue
+                if _is_valid_ip(hop):
+                    return hop
+                try:
+                    sec_log("proxy_header_invalid", direct, {"header": "X-Forwarded-For", "value": hop[:64]})
+                except Exception:
+                    pass
+                break
     return direct
 
 def rate_limit_check(request: Request, expensive=False):
@@ -125,8 +231,9 @@ DEF_REF={
     "ports":{"base":[
         {"port":1789,"proto":"tcp","desc":"Mixnet"},
         {"port":1790,"proto":"tcp","desc":"Verloc"},{"port":8080,"proto":"tcp","desc":"Node API"}],
-      "gateway_extra":[{"port":80,"proto":"tcp","desc":"HTTP"},{"port":443,"proto":"tcp","desc":"HTTPS"},{"port":9000,"proto":"tcp","desc":"Clients"},{"port":9001,"proto":"tcp","desc":"WSS"}],
-      "wireguard_extra":[{"port":51822,"proto":"udp","desc":"WireGuard"}],"ntm_extra":[{"port":41264,"proto":"tcp","desc":"NTM TCP"},{"port":4443,"proto":"udp","desc":"NTM UDP Alt"},{"port":51264,"proto":"udp","desc":"NTM UDP"}]},
+      "gateway_extra":[{"port":9000,"proto":"tcp","desc":"Clients WS"}],
+      "gateway_infra":[{"port":80,"proto":"tcp","desc":"HTTP (nginx)"},{"port":443,"proto":"tcp","desc":"HTTPS (nginx)"},{"port":9001,"proto":"tcp","desc":"WSS (nginx)"}],
+      "wireguard_extra":[{"port":51822,"proto":"udp","desc":"WireGuard"}],"ntm_extra":[{"port":41264,"proto":"tcp","desc":"Lewes Protocol"},{"port":51264,"proto":"udp","desc":"Lewes Protocol"}]},
     "min_hardware":{"cpu_cores":2,"ram_mb":4096},"min_hardware_gateway":{"cpu_cores":4,"ram_mb":8192},
     "github_ntm_url":"https://raw.githubusercontent.com/nymtech/nym/refs/heads/develop/scripts/nym-node-setup/network-tunnel-manager.sh",
     "nodes_api":"https://validator.nymtech.net/api/v1/nym-nodes/described"
@@ -189,7 +296,7 @@ async def record_hit(request:Request,payload:dict=Body(default={})):
     if not rate_limit_check(request):
         return JSONResponse({"ok":False},status_code=429)
     try:
-        client_ip=request.client.host if request.client else ""
+        client_ip=_real_ip(request)
         ua=(request.headers.get("user-agent") or "")[:200]
         ref=(request.headers.get("referer") or "")[:200]
         path=str(payload.get("path") or "/")[:120]
@@ -287,39 +394,53 @@ async def sync_ref(_:bool=Depends(require_admin)):
                     if not any(x["port"]==p for x in res):res.append({"port":p,"proto":fp,"desc":pd.get(p,"Port "+str(p))})
                 return res
             ref["ports"]["base"]=build({1789,1790,8080})
-            ref["ports"]["gateway_extra"]=build({80,443,9000,9001})
+            ref["ports"]["gateway_extra"]=build({9000})
+            ref["ports"]["gateway_infra"]=build({80,443,9001})
             ref["ports"]["wireguard_extra"]=build({51822},"udp")
             # Parse NTM bash arrays for gateway-specific ports
             ntm_tcp=set(int(p) for p in re.findall(r'local tcp_ports=\(([^)]+)\)',r.text)[0].split()) if re.findall(r'local tcp_ports=\(([^)]+)\)',r.text) else set()
             ntm_udp=set(int(p) for p in re.findall(r'local udp_ports=\(([^)]+)\)',r.text)[0].split()) if re.findall(r'local udp_ports=\(([^)]+)\)',r.text) else set()
-            known={22,80,443,1789,1790,8080,9000,9001,51822}
+            known={22,80,443,1789,1790,8080,9000,9001,51822,4443}
             ntm_extra_tcp=ntm_tcp-known;ntm_extra_udp=ntm_udp-known
             ntm_ports=[]
-            for p in sorted(ntm_extra_tcp):ntm_ports.append({"port":p,"proto":"tcp","desc":pd.get(p,"NTM TCP ")+str(p)})
-            for p in sorted(ntm_extra_udp):ntm_ports.append({"port":p,"proto":"udp","desc":pd.get(p,"NTM UDP ")+str(p)})
+            for p in sorted(ntm_extra_tcp):ntm_ports.append({"port":p,"proto":"tcp","desc":pd.get(p,"Lewes Protocol") if p==41264 else pd.get(p,"NTM TCP ")+str(p)})
+            for p in sorted(ntm_extra_udp):ntm_ports.append({"port":p,"proto":"udp","desc":pd.get(p,"Lewes Protocol") if p==51264 else pd.get(p,"NTM UDP ")+str(p)})
             ref["ports"]["ntm_extra"]=ntm_ports  # always set, even if empty (clears stale ports)
         except Exception as e:errors.append("NTM: "+str(e))
         try:
-            # Primary: get version from hashes.json in latest GitHub release
-            r=await c.get("https://api.github.com/repos/nymtech/nym/releases/latest",
+            # Fetch all recent releases to detect both stable and pre-release
+            r=await c.get("https://api.github.com/repos/nymtech/nym/releases?per_page=20",
                           headers={"Accept":"application/vnd.github.v3+json"},timeout=15)
-            r.raise_for_status();rel=r.json()
-            hashes_url=None
-            for a in rel.get("assets",[]):
-                if a.get("name")=="hashes.json":
-                    hashes_url=a["browser_download_url"]
-                    break
-            if hashes_url:
-                r2=await c.get(hashes_url,timeout=15,follow_redirects=True)
-                r2.raise_for_status()
-                bv=r2.json().get("assets",{}).get("nym-node",{}).get("details",{}).get("build_version","")
-                if re.match(r"^\d+\.\d+\.\d+$",bv):
-                    ref["latest_version"]=bv
-                    print("[*] Version from hashes.json: "+bv)
-                else:
-                    errors.append("hashes.json has no valid build_version: "+bv)
+            r.raise_for_status();all_rels=r.json()
+            # Most recent stable (not draft, not prerelease) and most recent prerelease
+            stable_rel=next((rl for rl in all_rels if not rl.get("draft") and not rl.get("prerelease")),None)
+            prerel_rel=next((rl for rl in all_rels if not rl.get("draft") and rl.get("prerelease")),None)
+            # Only keep prerelease if published AFTER the stable (otherwise stale)
+            if stable_rel and prerel_rel:
+                if prerel_rel.get("published_at","")<=stable_rel.get("published_at",""):
+                    prerel_rel=None
+            async def _bv_from_rel(rel):
+                if not rel:return ""
+                hashes_url=next((a["browser_download_url"] for a in rel.get("assets",[]) if a.get("name")=="hashes.json"),None)
+                if not hashes_url:return ""
+                try:
+                    r2=await c.get(hashes_url,timeout=15,follow_redirects=True);r2.raise_for_status()
+                    bv=r2.json().get("assets",{}).get("nym-node",{}).get("details",{}).get("build_version","")
+                    return bv if re.match(r"^\d+\.\d+\.\d+$",bv) else ""
+                except:return ""
+            stable_bv=await _bv_from_rel(stable_rel)
+            prerel_bv=await _bv_from_rel(prerel_rel)
+            if stable_bv:
+                ref["latest_version"]=stable_bv
+                print("[*] Stable version: "+stable_bv)
             else:
-                errors.append("No hashes.json in release assets")
+                errors.append("No stable version detected from releases")
+            if prerel_bv and prerel_bv!=stable_bv:
+                ref["prerelease_version"]=prerel_bv
+                print("[*] Pre-release version: "+prerel_bv)
+            else:
+                # Clear stale prerelease_version if no current prerelease exists
+                ref.pop("prerelease_version",None)
         except Exception as e:errors.append("Version: "+str(e))
     # 3) Save release download URLs
         try:
@@ -391,17 +512,25 @@ async def get_price():
 
 @app.get("/api/network-stats")
 async def network_stats():
-    nodes=await _cnodes();ref=load_ref();latest=ref.get("latest_version","")
+    nodes=await _cnodes();ref=load_ref();latest=ref.get("latest_version","");prerelease=ref.get("prerelease_version")
     total=len(nodes)
     if not total:return{"total":0}
     by_mode={"mixnode":0,"entry-gateway":0,"exit-gateway":0,"unknown":0}
-    ver_buckets={0:0,1:0,2:0,3:0,4:0}
+    ver_buckets={0:0,1:0,2:0,3:0,4:0}  # behind-buckets only
+    ver_status_counts={"current":0,"prerelease":0,"ahead":0,"behind":0,"unknown":0}
     toc_ok=wg_ok=fully_compliant=0
     ipv6_trusted=ipv6_confirmed=ipv6_absent=ipv6_unknown=0
+    # SMTP aggregates (exit gateways only)
+    smtp_open=smtp_partial=smtp_blocked=smtp_unknown=0
     for n in nodes:
         by_mode[n.get("mode","unknown")]=by_mode.get(n.get("mode","unknown"),0)+1
-        diff=_ver_diff(n.get("version",""),latest)
-        ver_buckets[min(diff,4)]+=1
+        vr=_build_version_response(n.get("version",""),latest,prerelease)
+        ver_status_counts[vr["status"]]=ver_status_counts.get(vr["status"],0)+1
+        # behind-diff buckets (only for outdated, current/prerelease/ahead go to bucket 0)
+        if vr["ok"]:
+            ver_buckets[0]+=1
+        else:
+            ver_buckets[min(_ver_diff(n.get("version",""),latest),4)]+=1
         _toc=n.get("toc")
         if _toc:toc_ok+=1
         st=n.get("ipv6_status","unknown")
@@ -411,7 +540,15 @@ async def network_stats():
         elif st=="absent":ipv6_absent+=1
         else:ipv6_unknown+=1
         if n.get("wg"):wg_ok+=1
-        if diff==0 and _toc and _ipv6:fully_compliant+=1
+        if vr["ok"] and _toc and _ipv6:fully_compliant+=1
+        # SMTP status for exit gateways
+        if n.get("mode")=="exit-gateway":
+            s=_smtp_cache.get(n.get("ip",""),{})
+            st_smtp=s.get("status","unknown")
+            if st_smtp=="open":smtp_open+=1
+            elif st_smtp=="partial":smtp_partial+=1
+            elif st_smtp=="blocked":smtp_blocked+=1
+            else:smtp_unknown+=1
     ipv6_ok=ipv6_trusted+ipv6_confirmed
     issues=sorted([
         {"key":"outdated","label":"Outdated version","count":total-ver_buckets[0]},
@@ -422,13 +559,197 @@ async def network_stats():
         "total":total,
         "fully_compliant":fully_compliant,
         "by_mode":by_mode,
-        "version":{"current":ver_buckets[0],"behind_1":ver_buckets[1],"behind_2":ver_buckets[2],"behind_3":ver_buckets[3],"behind_4plus":ver_buckets[4]},
+        "version":{"current":ver_buckets[0],"behind_1":ver_buckets[1],"behind_2":ver_buckets[2],"behind_3":ver_buckets[3],"behind_4plus":ver_buckets[4],
+            "by_status":ver_status_counts},
         "toc":{"accepted":toc_ok,"not_accepted":total-toc_ok},
         "ipv6":{"trusted":ipv6_trusted,"confirmed":ipv6_confirmed,"absent":ipv6_absent,"unknown":ipv6_unknown,"enabled":ipv6_ok,"disabled":total-ipv6_ok},
         "wg":{"enabled":wg_ok,"disabled":total-wg_ok},
+        "smtp":{"open":smtp_open,"partial":smtp_partial,"blocked":smtp_blocked,"unknown":smtp_unknown,
+            "total_exits":smtp_open+smtp_partial+smtp_blocked+smtp_unknown},
         "top_issues":issues,
         "latest_version":latest,
+        "prerelease_version":prerelease,
         "cache_note":"Port status not included - requires per-node scan"
+    }
+
+# ── Deploy Recommendations ──────────────────────────────────
+try:
+    from nym_country_data import country_score as _country_score, COUNTRIES as _COUNTRIES
+    _DEPLOY_AVAILABLE = True
+except Exception as e:
+    print(f"[!] nym_country_data not available: {e}")
+    _DEPLOY_AVAILABLE = False
+
+try:
+    from nym_provider_data import aggregate_providers as _aggregate_providers, PROVIDERS as _PROVIDERS
+    _PROVIDERS_AVAILABLE = True
+except Exception as e:
+    print(f"[!] nym_provider_data not available: {e}")
+    _PROVIDERS_AVAILABLE = False
+
+ASN_DATA_FILE = Path("/opt/nym-probe/asn_data.json")
+_asn_cache = {"ip_to_asn": {}, "asn_names": {}}
+def _load_asn_cache():
+    global _asn_cache
+    if ASN_DATA_FILE.exists():
+        try:
+            _asn_cache = json.loads(ASN_DATA_FILE.read_text())
+            print(f"[*] ASN cache loaded: {len(_asn_cache.get('ip_to_asn',{}))} IPs, {len(_asn_cache.get('asn_names',{}))} ASNs")
+        except Exception as e:
+            print(f"[!] ASN cache load error: {e}")
+
+@app.get("/api/deploy-providers")
+async def deploy_providers():
+    """Hosting provider analysis - aggregate nodes by ASN, score each provider."""
+    if not _PROVIDERS_AVAILABLE:
+        return JSONResponse({"error":"providers module not loaded"},status_code=500)
+    nodes = await _cnodes()
+    total = len(nodes)
+    if not total:
+        return {"error":"no nodes","total":0}
+    ip_to_asn = _asn_cache.get("ip_to_asn",{})
+    asn_names = _asn_cache.get("asn_names",{})
+    results = _aggregate_providers(nodes, ip_to_asn, asn_names, total, smtp_cache=_smtp_cache)
+    # Group by classification, sort each group by score desc within group
+    grouped = {}
+    for r in results:
+        grouped.setdefault(r["classification"], []).append(r)
+    for k in grouped:
+        grouped[k].sort(key=lambda x: -x.get("score", 0))
+    return {
+        "total_nodes": total,
+        "providers": results[:50],
+        "by_classification": grouped,
+        "asn_coverage": len(ip_to_asn),
+    }
+
+@app.get("/api/deploy-provider/{asn}")
+async def deploy_provider_detail(asn: str):
+    """Detail view for one provider/ASN: score + list of nodes there."""
+    if not _PROVIDERS_AVAILABLE:
+        return JSONResponse({"error":"providers module not loaded"},status_code=500)
+    asn = str(asn).strip().lstrip("AS").lstrip("as")[:10]
+    if not asn.isdigit():
+        return JSONResponse({"error":"invalid asn"},status_code=400)
+    nodes = await _cnodes()
+    total = len(nodes)
+    ip_to_asn = _asn_cache.get("ip_to_asn",{})
+    asn_names = _asn_cache.get("asn_names",{})
+    in_provider = [n for n in nodes if (ip_to_asn.get(n.get("ip","")) or {}).get("asn") == asn]
+    if not in_provider:
+        return JSONResponse({"error":"no nodes in this ASN"},status_code=404)
+    # Compute score for this provider
+    from nym_provider_data import provider_score as _provider_score
+    smtp_stats = {"open":0,"partial":0,"blocked":0,"unknown":0}
+    if _smtp_cache:
+        for n in in_provider:
+            if n.get("mode") != "exit-gateway":
+                continue
+            s = _smtp_cache.get(n.get("ip",""))
+            if s:
+                st = s.get("status","unknown")
+                if st in smtp_stats:
+                    smtp_stats[st] += 1
+    score = _provider_score(asn, len(in_provider), total,
+                             smtp_stats=smtp_stats if any(smtp_stats.values()) else None,
+                             fallback_name=asn_names.get(asn,""))
+    score["smtp_stats"] = smtp_stats if any(smtp_stats.values()) else None
+    # Country breakdown for this provider
+    from collections import Counter
+    by_country = Counter()
+    for n in in_provider:
+        cc = (n.get("location") or "").upper()
+        if cc:
+            by_country[cc] += 1
+    score["by_country"] = [{"cc": cc, "count": cnt} for cc, cnt in by_country.most_common()]
+    # Slim node list
+    node_list = []
+    for n in sorted(in_provider, key=lambda x: x.get("moniker","").lower()):
+        node_list.append({
+            "node_id": n.get("node_id"),
+            "ip": n.get("ip"),
+            "moniker": n.get("moniker"),
+            "hostname": n.get("hostname"),
+            "mode": n.get("mode"),
+            "location": n.get("location"),
+            "version": n.get("version"),
+            "wg": n.get("wg"),
+        })
+    score["nodes"] = node_list
+    return score
+
+@app.get("/api/deploy-country/{cc}")
+async def deploy_country_detail(cc: str):
+    """Detailed view for one country: score + list of nodes there."""
+    if not _DEPLOY_AVAILABLE:
+        return JSONResponse({"error":"deploy data not loaded"},status_code=500)
+    cc = cc.upper()[:2]
+    if cc not in _COUNTRIES:
+        return JSONResponse({"error":"country not in database"},status_code=404)
+    nodes = await _cnodes()
+    total = len(nodes)
+    in_country = [n for n in nodes if (n.get("location") or "").upper() == cc]
+    score = _country_score(cc, len(in_country), total)
+    score["cc"] = cc
+    # Slim node info
+    node_list = []
+    for n in sorted(in_country, key=lambda x: x.get("moniker","").lower()):
+        node_list.append({
+            "node_id": n.get("node_id"),
+            "ip": n.get("ip"),
+            "moniker": n.get("moniker"),
+            "hostname": n.get("hostname"),
+            "mode": n.get("mode"),
+            "version": n.get("version"),
+            "wg": n.get("wg"),
+        })
+    return {**score, "nodes": node_list}
+
+@app.get("/api/deploy-recommendations")
+async def deploy_recommendations():
+    """Where-to-deploy recommendations based on country demand/saturation/operator risk."""
+    if not _DEPLOY_AVAILABLE:
+        return JSONResponse({"error":"deploy data not loaded"},status_code=500)
+    nodes = await _cnodes()
+    total = len(nodes)
+    if not total:
+        return {"error":"no nodes data","total":0}
+    # Count nodes per country
+    by_country = {}
+    for n in nodes:
+        cc = (n.get("location") or "").upper()
+        if cc:
+            by_country[cc] = by_country.get(cc, 0) + 1
+    # Score every known country
+    results = []
+    for cc in _COUNTRIES:
+        s = _country_score(cc, by_country.get(cc, 0), total)
+        s["cc"] = cc
+        results.append(s)
+    # Group by classification
+    grouped = {}
+    for r in results:
+        grouped.setdefault(r["classification"], []).append(r)
+    # Sort each group by score descending
+    for g in grouped.values():
+        g.sort(key=lambda x: -x.get("score", 0))
+    # Top recommendations (combining highly_recommended + top good)
+    top = sorted(
+        [r for r in results if r["classification"] in ("highly_recommended","good") and r.get("nodes_here",0) < 20],
+        key=lambda x: -x.get("score", 0)
+    )[:15]
+    return {
+        "total_nodes": total,
+        "top_recommended": top,
+        "by_classification": grouped,
+        "classifications": {
+            "highly_recommended": "High demand, low saturation, operator-safe - deploy here",
+            "good": "Good deployment target, reasonable demand and safety",
+            "saturated": "Already many nodes here, diminishing returns",
+            "caution": "Restricted VPN laws for users but operators generally safe - verify locally",
+            "not_recommended": "Local environment is hostile to privacy infrastructure operators - not recommended",
+            "low_demand": "Safe but low user demand (small population or low internet/income)",
+        },
     }
 
 # ── Port Check ──────────────────────────────────────────────
@@ -679,12 +1000,12 @@ async def _safe_json(client, url, timeout=5):
 
 async def qnode(client,host,port=8080):
     """Query node API on port 8080 only. No fallback to port 80."""
-    res={"reachable":False,"roles":None,"description":None,"build_info":None,"auxiliary":None,"host_info":None}
+    res={"reachable":False,"roles":None,"description":None,"build_info":None,"auxiliary":None,"host_info":None,"gateway":None,"lp":None}
     base=f"http://{_host_for_url(host)}:{port}/api/v1"
     roles=await _safe_json(client,base+"/roles",timeout=5)
     if roles is not None:
         res["reachable"]=True;res["roles"]=roles
-        endpoints={"description":"/description","build_info":"/build-information","auxiliary":"/auxiliary-details","host_info":"/host-information"}
+        endpoints={"description":"/description","build_info":"/build-information","auxiliary":"/auxiliary-details","host_info":"/host-information","gateway":"/gateway","lp":"/lewes-protocol"}
         async def _fetch(k,p):
             v=await _safe_json(client,base+p,timeout=5)
             return k,v
@@ -693,7 +1014,9 @@ async def qnode(client,host,port=8080):
             if v is not None:res[k]=v
     return res
 
-IPV6_AGENT = "http://185.186.78.251:8765"
+# IPV6_AGENT_URL set via env (see top). IPV6_AGENT here for legacy code paths only;
+# always check _ipv6_agent_enabled before using.
+IPV6_AGENT = IPV6_AGENT_URL or ""
 
 # In-memory cache of IPv6 results to prevent flip-flop on agent timeouts.
 # Key: ip, Value: {"status": "trusted"|"confirmed"|"absent"|"unknown", "ts": float}
@@ -703,6 +1026,53 @@ IPV6_AGENT = "http://185.186.78.251:8765"
 # unknown  = timeout/error, no data yet
 _ipv6_cache = {}
 _IPV6_ABSENT_TTL = 3600 * 6  # 6h - absent is re-checkable, not permanent
+
+# ── SMTP egress cache ───────────────────────────────────────
+# Loaded from SMTP_RESULTS_FILE_PATH (env-configurable, produced by daily probe)
+# Keyed by IP string -> {"status": "open"|"partial"|"blocked", "open_on": [...], "blocked_on": [...]}
+SMTP_RESULTS_FILE = Path(SMTP_RESULTS_FILE_PATH)
+_smtp_cache = {}   # ip_str -> dict
+_smtp_meta = {}    # "when", "total", etc.
+
+def _load_smtp_cache():
+    """Load SMTP probe results from disk into memory, keyed by IP."""
+    global _smtp_cache, _smtp_meta
+    if not SMTP_RESULTS_FILE.exists():
+        print("[*] SMTP cache file not found, skipping")
+        return
+    try:
+        raw = json.loads(SMTP_RESULTS_FILE.read_text())
+        file_mtime = SMTP_RESULTS_FILE.stat().st_mtime
+        cache = {}
+        for _key, entry in raw.items():
+            ip = entry.get("ip")
+            if not ip:
+                continue
+            overall = entry.get("overall", "").upper()
+            if overall == "FULLY_OPEN":
+                status = "open"
+            elif overall == "PARTIAL":
+                status = "partial"
+            elif overall == "HOSTER_BLOCKED":
+                status = "blocked"
+            else:
+                status = "unknown"
+            cache[ip] = {
+                "status": status,
+                "ok": status == "open",
+                "open_on": entry.get("open_on", []),
+                "blocked_on": entry.get("blocked_on", []),
+            }
+        _smtp_cache = cache
+        _smtp_meta = {
+            "loaded": datetime.now(timezone.utc).isoformat(),
+            "file_mtime": file_mtime,
+            "checked_at": datetime.fromtimestamp(file_mtime, tz=timezone.utc).isoformat(),
+            "total": len(cache),
+        }
+        print(f"[*] SMTP cache loaded: {len(cache)} exits (probed {_smtp_meta['checked_at']})")
+    except Exception as e:
+        print(f"[!] SMTP cache load error: {e}")
 
 async def _ask_stockholm_single(client, url, timeout=5):
     """Single attempt to query Stockholm agent. Returns True/False/None (None=timeout)."""
@@ -738,13 +1108,14 @@ async def ck_ipv6(client, host, ipv6_hint=None, hostname=None):
         except Exception:
             pass
 
-    # 3) Stockholm agent (2 attempts, 5s each)
-    url = f"{IPV6_AGENT}/check_ipv6?host={host}&port=8080"
+    # 3) Stockholm agent (2 attempts, 5s each) - only if enabled by env config
     result = None
-    for _ in range(2):
-        result = await _ask_stockholm_single(client, url, timeout=5)
-        if result is not None:
-            break
+    if _ipv6_agent_enabled:
+        url = f"{IPV6_AGENT}/check_ipv6?host={host}&port=8080"
+        for _ in range(2):
+            result = await _ask_stockholm_single(client, url, timeout=5)
+            if result is not None:
+                break
 
     if result is True:
         _ipv6_cache[host] = {"status": "confirmed", "ts": time.time()}
@@ -784,7 +1155,7 @@ async def ck_ipv6(client, host, ipv6_hint=None, hostname=None):
     return False
 
 def _build_ipv6_response(ip, supported):
-    """Build rich IPv6 response with status, source, checked_at from cache."""
+    """Build rich IPv6 response with status, source, checked_at, transport_security."""
     cache_entry=_ipv6_cache.get(ip,{})
     status=cache_entry.get("status","unknown")
     if not supported and status not in ("absent",):status="unknown"
@@ -798,6 +1169,9 @@ def _build_ipv6_response(ip, supported):
                 if n.get("ipv6_status"):resp["status"]=n["ipv6_status"]
                 break
     except:pass
+    # Additive optional field: transport_security for stockholm-sourced status
+    if resp.get("source") == "stockholm" or resp.get("status") == "confirmed":
+        resp["transport_security"] = "secure" if _ipv6_agent_secure else "insecure"
     return resp
 
 # ── Main Check ──────────────────────────────────────────────
@@ -818,12 +1192,48 @@ async def _check_ip(client,ip,hostname,ref):
     cur=build.get("build_version","unknown");lat=ref.get("latest_version","unknown")
     wg=roles.get("authenticator_enabled",False)
     if nd["host_info"] and isinstance(nd["host_info"],dict):wg=wg or bool(nd["host_info"].get("wireguard",{}).get("enabled"))
-    rp=list(ref["ports"]["base"])
+    # Build port lists using announced ports where available, falling back to defaults
+    aux=nd["auxiliary"] or {}
+    _ann=aux.get("announce_ports",{}) if isinstance(aux,dict) else {}
+    _host_info=nd["host_info"] or {}
+    _hi_data=_host_info.get("data",_host_info) if isinstance(_host_info,dict) else {}
+    _node_hostname=_hi_data.get("hostname")
+    # Gateway endpoint returns WG + WS/WSS ports in one response
+    _gw=nd.get("gateway") or {}
+    _gw_data=_gw.get("client_interfaces",_gw) if isinstance(_gw,dict) else {}
+    _ws_iface=(_gw_data.get("mixnet_websockets") or {}) if isinstance(_gw_data,dict) else {}
+    _wg_iface=(_gw_data.get("wireguard") or {}) if isinstance(_gw_data,dict) else {}
+    # LP endpoint: control_port (TCP) + data_port (UDP)
+    _lp=nd.get("lp") or {}
+    _lp_data=(_lp.get("data") or _lp) if isinstance(_lp,dict) else {}
+    # Announced ports (use announced if set, otherwise defaults). Treat 0 as "not set".
+    _mix_port=_ann.get("mix_port") or 1789
+    _verloc_port=_ann.get("verloc_port") or 1790
+    _ws_port=_ws_iface.get("ws_port") or 9000
+    _wss_port=_ws_iface.get("wss_port") or 9001
+    _wg_tunnel_port=_wg_iface.get("tunnel_port") or _wg_iface.get("port") or 51822
+    _lp_control_port=_lp_data.get("control_port") or 41264
+    _lp_data_port=_lp_data.get("data_port") or 51264
+    # Required ports (affect score)
+    rp=[{"port":_mix_port,"proto":"tcp","desc":"Mixnet"}]
+    if is_mix:
+        rp.append({"port":_verloc_port,"proto":"tcp","desc":"Verloc"})
     if mode in("entry-gateway","exit-gateway"):
-        rp+=ref["ports"]["gateway_extra"]
+        rp.append({"port":_ws_port,"proto":"tcp","desc":"Clients WS"})
+    if wg:
+        rp.append({"port":_wg_tunnel_port,"proto":"udp","desc":"WireGuard"})
+    # Note: 8080 API reachability is already verified by qnode() above - no need to re-probe
+    # Infrastructure ports: checked but don't affect score
+    infra_ports=[]
+    if mode in("entry-gateway","exit-gateway") and _node_hostname:
+        # Only check nginx/TLS ports if node announces a hostname
+        infra_ports.append({"port":80,"proto":"tcp","desc":"HTTP (nginx)"})
+        infra_ports.append({"port":443,"proto":"tcp","desc":"HTTPS (nginx)"})
+        infra_ports.append({"port":_wss_port,"proto":"tcp","desc":"WSS (nginx)"})
     if mode=="exit-gateway":
-        rp+=ref["ports"].get("ntm_extra",[])
-    if wg:rp+=ref["ports"]["wireguard_extra"]
+        # Use announced LP ports if available, fallback to defaults
+        infra_ports.append({"port":_lp_control_port,"proto":"tcp","desc":"Lewes Protocol"})
+        infra_ports.append({"port":_lp_data_port,"proto":"udp","desc":"Lewes Protocol"})
     # Extract IPv6 hint from host-info before parallel block
     _ipv6_hint=None
     if nd["host_info"] and isinstance(nd["host_info"],dict):
@@ -834,23 +1244,30 @@ async def _check_ip(client,ip,hostname,ref):
     async def _guarded_probe(coro):
         async with _probe_sem:
             return await coro
-    port_coros=[_guarded_probe(ck_tcp(ip,p["port"]) if p["proto"]=="tcp" else ck_udp(ip,p["port"])) for p in rp]
+    all_ports=rp+infra_ports
+    port_coros=[_guarded_probe(ck_tcp(ip,p["port"]) if p["proto"]=="tcp" else ck_udp(ip,p["port"])) for p in all_ports]
     all_results=await asyncio.gather(*port_coros,_phw(client,ip),ck_ipv6(client,ip,_ipv6_hint,hostname=_hn))
-    port_results=all_results[:len(rp)];hw=all_results[-2];ipv6=all_results[-1]
+    port_results=all_results[:len(all_ports)];hw=all_results[-2];ipv6=all_results[-1]
+    n_required=len(rp)
     op,mp,likely_open=[],[],[]
-    for pi,ok in zip(rp,port_results):
+    infra_open,infra_closed=[],[]
+    for idx,(pi,ok) in enumerate(zip(all_ports,port_results)):
         label=str(pi["port"])+"/"+pi["proto"]
+        is_infra=idx>=n_required
         if pi["proto"]=="udp" and not _udp_verifiable(pi["port"]):
-            # ICMP-based heuristic: no ICMP error = likely open, but not deterministic
             if ok:
                 likely_open.append(label)
-                op.append(label)
+                if is_infra: infra_open.append(label)
+                else: op.append(label)
             else:
-                mp.append(label)  # got ICMP unreachable = definitely closed
+                if is_infra: infra_closed.append(label)
+                else: mp.append(label)
         elif ok:
-            op.append(label)
+            if is_infra: infra_open.append(label)
+            else: op.append(label)
         else:
-            mp.append(label)
+            if is_infra: infra_closed.append(label)
+            else: mp.append(label)
     exit_policy_results=None
     has_exit_policy=False
     if is_exit:
@@ -866,18 +1283,40 @@ async def _check_ip(client,ip,hostname,ref):
             exit_policy_results={"declared":True,"status":"confirmed","ports":std.get("ports",[]) if std else [],"total":std.get("total",0) if std else 0,"node_enabled":True,"upstream_source":ep_data.get("upstream_source","")}
         else:
             exit_policy_results={"declared":False,"status":"absent","ports":[],"total":0,"node_enabled":False,"upstream_source":""}
-    aux=nd["auxiliary"] or {};toc=aux.get("accepted_operator_terms_and_conditions",False)
+    toc=aux.get("accepted_operator_terms_and_conditions",False)
     mh=ref.get("min_hardware_gateway",{}) if (is_entry or is_exit) else ref.get("min_hardware",{})
     score=_score(cur,lat,len(mp),len(rp),ipv6,hw,mh,toc,is_exit,has_exit_policy)
+    # SMTP egress status (exit gateways only, informational, no score impact)
+    smtp_result = None
+    if is_exit:
+        smtp_data = _smtp_cache.get(ip)
+        file_mtime = _smtp_meta.get("file_mtime")
+        age = int(time.time() - file_mtime) if file_mtime else None
+        stale = age is not None and age > SMTP_STALE_SECONDS
+        checked_at = _smtp_meta.get("checked_at")
+        if smtp_data:
+            smtp_result = dict(smtp_data)
+            smtp_result["checked_at"] = checked_at
+            smtp_result["age_seconds"] = age
+            smtp_result["stale"] = stale
+            if stale:
+                # Show as unknown if data is too old
+                smtp_result["status"] = "unknown"
+                smtp_result["ok"] = False
+        else:
+            smtp_result = {"status":"unknown","ok":False,"open_on":[],"blocked_on":[],
+                "checked_at":checked_at,"age_seconds":age,"stale":stale}
     return {"node_ip":ip,"hostname":hostname,"check_timestamp":datetime.now(timezone.utc).isoformat(),
         "score":score,"mode":mode,"wireguard_enabled":wg,
-        "version":{"current":cur,"latest":lat,"ok":cur==lat},
-        "ports":{"total":len(rp),"open":len(op),"missing":mp,"likely_open":likely_open,"ok":len(mp)==0},
+        "version":_build_version_response(cur,lat,ref.get("prerelease_version")),
+        "ports":{"total":len(rp),"open":len(op),"missing":mp,"likely_open":likely_open,"ok":len(mp)==0,
+            "infra":{"total":len(infra_ports),"open":infra_open,"closed":infra_closed,"ok":len(infra_closed)==0} if infra_ports else None},
         "ipv6":_build_ipv6_response(ip,ipv6),"hardware":hw,"toc":{"accepted":toc,"ok":toc},
         "description":{"moniker":desc.get("moniker",""),"website":desc.get("website",""),"security_contact":desc.get("security_contact","")},
         "auxiliary":{"location":aux.get("location","")},
         "roles":{"mixnode":is_mix,"entry_gateway":is_entry,"exit_gateway":is_exit},
         "exit_policy":exit_policy_results,
+        "smtp":smtp_result,
         "reference_version":lat,"reference_updated":ref.get("updated_at"),"min_hardware":mh}
 
 @app.get("/api/check")
@@ -990,6 +1429,34 @@ async def _phw(client, host):
             pass
     return {"available": False, "cpu_cores": 0, "ram_mb": 0, "os": ""}
 
+def _ver_tuple(v):
+    """Parse version string into tuple, or None if invalid."""
+    try:return tuple(int(x) for x in v.split('.'))
+    except:return None
+
+def _build_version_response(cur,stable,prerelease):
+    """
+    Build version response with status awareness:
+    - current: running version
+    - stable: latest stable from GitHub (releases/latest)
+    - prerelease: most recent prerelease, or None if none or older than stable
+    - status: 'current'|'prerelease'|'ahead'|'behind'|'unknown'
+    - ok: True if status is current/prerelease/ahead
+    """
+    cv=_ver_tuple(cur);sv=_ver_tuple(stable);pv=_ver_tuple(prerelease) if prerelease else None
+    if cv is None or sv is None:
+        return {"current":cur,"latest":stable,"prerelease":prerelease,"status":"unknown","ok":False}
+    if cv==sv:
+        status="current"
+    elif pv and cv==pv:
+        status="prerelease"
+    elif cv>sv:
+        status="ahead"
+    else:
+        status="behind"
+    return {"current":cur,"latest":stable,"prerelease":prerelease,"status":status,
+            "ok":status in ("current","prerelease","ahead")}
+
 def _ver_diff(cur,lat):
     """How many minor versions behind cur is vs lat. Returns 0 if up to date."""
     try:
@@ -1077,9 +1544,14 @@ async def list_nodes(mode:Optional[str]=Query(None,max_length=32),country:Option
             return JSONResponse({"error":"q must be at least 3 characters"},status_code=400)
         ql=qs.lower()
         nodes=[n for n in nodes if ql in n.get("ip","").lower() or ql in n.get("moniker","").lower() or ql in(n.get("hostname") or "").lower() or ql in n.get("identity_key","").lower() or ql in str(n.get("node_id","")).lower()]
-    _LIST_KEYS=("node_id","ip","hostname","moniker","mode","location","version","wg")
-    slim=[{k:n.get(k) for k in _LIST_KEYS} for n in nodes]
-    return{"count":len(slim),"nodes":slim}
+    _LIST_KEYS=("node_id","ip","hostname","moniker","mode","location","version","wg","identity_key")
+    ref=load_ref();latest=ref.get("latest_version","");prerelease=ref.get("prerelease_version")
+    slim=[]
+    for n in nodes:
+        item={k:n.get(k) for k in _LIST_KEYS}
+        item["version_status"]=_build_version_response(n.get("version",""),latest,prerelease).get("status","unknown")
+        slim.append(item)
+    return{"count":len(slim),"nodes":slim,"latest_version":latest,"prerelease_version":prerelease}
 
 _nodes_mem={"nodes":[],"ts":0,"file_ts":0}
 async def _cnodes():
@@ -1212,7 +1684,9 @@ async def _do_refresh_ipv6_inner():
         return None
 
     async def ask_stockholm(ip):
-        """Returns (True, addr), (False, None), or (None, None) on timeout."""
+        """Returns (True, addr), (False, None), or (None, None) on timeout/disabled."""
+        if not _ipv6_agent_enabled:
+            return None, None
         url = f"{IPV6_AGENT}/check_ipv6?host={ip}&port=8080"
         async with httpx.AsyncClient() as client:
             for _ in range(2):
@@ -1304,10 +1778,14 @@ _bg_tasks = []
 
 @asynccontextmanager
 async def lifespan(app):
+    _validate_security_config()  # P3.2: validate env-driven security config + warnings
+    _load_smtp_cache()  # load existing results immediately on startup
+    _load_asn_cache()
     _bg_tasks.append(asyncio.create_task(_fetch_exit_policy()))
     _bg_tasks.append(asyncio.create_task(_bg_moniker_refresh()))
     _bg_tasks.append(asyncio.create_task(_bg_auto_sync()))
     _bg_tasks.append(asyncio.create_task(_bg_daily_ipv6()))
+    _bg_tasks.append(asyncio.create_task(_bg_daily_smtp()))
     yield
     for t in _bg_tasks:
         t.cancel()
@@ -1325,6 +1803,36 @@ async def _bg_daily_ipv6():
             print(f"[!] Daily IPv6 scan error: {e}")
         await asyncio.sleep(86400)  # 24 hours
 
+async def _bg_daily_smtp():
+    """Run SMTP egress probe once a day. Offset from IPv6 scan by ~6h."""
+    await asyncio.sleep(21600)  # 6 hours after startup
+    while True:
+        try:
+            print("[*] Daily SMTP probe starting...")
+            proc = await asyncio.create_subprocess_exec(
+                "python3", "/opt/nym-probe/run_all.py",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                cwd="/opt/nym-probe"
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=7200)  # 2h max
+            print(f"[*] SMTP probe finished (exit={proc.returncode})")
+            if proc.returncode == 0:
+                # Copy results to the standard location
+                src = Path("/opt/nym-probe/all_results_multitarget.json")
+                if src.exists():
+                    import shutil
+                    shutil.copy2(str(src), str(SMTP_RESULTS_FILE))
+                _load_smtp_cache()
+            else:
+                print(f"[!] SMTP probe stderr: {stderr.decode()[:500]}")
+        except asyncio.TimeoutError:
+            print("[!] SMTP probe timed out (>2h)")
+            if proc:
+                proc.kill()
+        except Exception as e:
+            print(f"[!] Daily SMTP probe error: {e}")
+        await asyncio.sleep(86400)  # 24 hours
+
 async def _bg_auto_sync():
     await asyncio.sleep(60)  # Wait 1 min after startup
     while True:
@@ -1340,16 +1848,23 @@ async def _bg_auto_sync():
             print("[!] Auto-sync error: "+str(e))
         await asyncio.sleep(AUTO_SYNC_INTERVAL)
 
+NODE_STALE_SECONDS = 2 * 3600  # Keep node in cache for 2h if validator API stops returning it
+
 async def _bg_moniker_refresh():
     await asyncio.sleep(5)  # Let the server start first
     while True:
         try:
             async with _cache_lock:
+                # Load previous cache (by node_id so we can merge and preserve ipv6)
+                prev_by_nid = {}
                 prev_ipv6 = {}
                 if CACHE_FILE.exists():
                     try:
                         old_data = json.loads(CACHE_FILE.read_text())
                         for n in old_data.get("nodes", []):
+                            nid = n.get("node_id")
+                            if nid is not None:
+                                prev_by_nid[nid] = n
                             if n.get("ipv6") or n.get("ipv6_addr") or n.get("ipv6_status") in ("confirmed","trusted"):
                                 prev_ipv6[n["ip"]] = {k:n.get(k) for k in ("ipv6","ipv6_addr","ipv6_source","ipv6_status","ipv6_checked_at") if n.get(k) is not None}
                     except: pass
@@ -1357,14 +1872,32 @@ async def _bg_moniker_refresh():
                 if not nodes:
                     print("[!] Background refresh: 0 nodes, keeping old cache")
                     continue
+                now = time.time()
+                fetched_nids = set()
+                # Stamp fresh nodes with last_seen=now, keep monikers/ipv6
+                for n in nodes:
+                    n["last_seen"] = now
+                    if n.get("node_id") is not None:
+                        fetched_nids.add(n["node_id"])
                 monikers = await _fetch_monikers_batch(nodes)
                 for n in nodes:
                     m = monikers.get(n["ip"], "")
                     if m: n["moniker"] = re.sub(r"[\x00-\x1F\x7F]", "", m).strip() or n["moniker"]
                     if not n.get("ipv6") and n["ip"] in prev_ipv6:
                         n.update(prev_ipv6[n["ip"]])
-                await _atomic_write(CACHE_FILE,json.dumps({"ts": time.time(), "nodes": nodes}, ensure_ascii=False))
-                print(f"[*] Background refresh done: {len(nodes)} nodes, ipv6_kept={len(prev_ipv6)}")
+                # Re-add nodes from previous cache that are missing this round but still fresh
+                # (handles validator API transient drops - node stays in cache for up to NODE_STALE_SECONDS)
+                kept = 0
+                for nid, old in prev_by_nid.items():
+                    if nid in fetched_nids:
+                        continue
+                    last_seen = old.get("last_seen") or old_data.get("ts", 0)
+                    if now - last_seen < NODE_STALE_SECONDS:
+                        # Keep it without updating last_seen
+                        nodes.append(old)
+                        kept += 1
+                await _atomic_write(CACHE_FILE,json.dumps({"ts": now, "nodes": nodes}, ensure_ascii=False))
+                print(f"[*] Background refresh done: {len(nodes)} nodes (fresh={len(fetched_nids)}, kept_stale={kept}, ipv6_kept={len(prev_ipv6)})")
         except Exception as e:
             print(f"[!] Background refresh error: {e}")
         await asyncio.sleep(1800)  # Every 30 min

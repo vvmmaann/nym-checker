@@ -1,0 +1,2463 @@
+{
+  "_meta": {
+    "schema_version": "1.1",
+    "source_name": "Ember Yearly Electricity Data",
+    "source_indicator": "Power sector emissions - CO2 intensity",
+    "source_url": "https://files.ember-energy.org/public-downloads/yearly_full_release_long_format.csv",
+    "source_landing": "https://ember-energy.org/data/yearly-electricity-data/",
+    "license": "CC-BY-4.0",
+    "unit": "gCO2/kWh",
+    "verified_at": "2026-05-16",
+    "fetched_current_year": 2026,
+    "world_average": {
+      "value": 458.5,
+      "year": 2025
+    },
+    "our_countries_total": 145,
+    "coverage_summary": {
+      "covered": 141,
+      "not_covered": 4,
+      "not_covered_codes": [
+        "AD",
+        "LI",
+        "MC",
+        "SM"
+      ],
+      "coverage_pct": 97.2
+    },
+    "freshness_summary": {
+      "by_class": {
+        "recent": 50,
+        "fresh": 89,
+        "stale": 1,
+        "aged": 1
+      },
+      "by_year": {
+        "2019": 1,
+        "2022": 1,
+        "2024": 50,
+        "2025": 89
+      }
+    },
+    "country_source_lookup_method": "direct import of backend.nym_country_data.COUNTRIES (145 keys verified)"
+  },
+  "countries": {
+    "AD": {
+      "iso3": "AND",
+      "covered": false,
+      "note": "no Ember data available for this ISO3"
+    },
+    "AE": {
+      "iso3": "ARE",
+      "name": "United Arab Emirates",
+      "covered": true,
+      "intensity_g_per_kwh": 467.5,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 660.1,
+        "delta": -192.6,
+        "delta_pct": -29.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AF": {
+      "iso3": "AFG",
+      "name": "Afghanistan",
+      "covered": true,
+      "intensity_g_per_kwh": 131.3,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 116.4,
+        "delta": 14.9,
+        "delta_pct": 12.8,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AL": {
+      "iso3": "ALB",
+      "name": "Albania",
+      "covered": true,
+      "intensity_g_per_kwh": 25.2,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 23.1,
+        "delta": 2.1,
+        "delta_pct": 9.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AM": {
+      "iso3": "ARM",
+      "name": "Armenia",
+      "covered": true,
+      "intensity_g_per_kwh": 211.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 251.3,
+        "delta": -39.4,
+        "delta_pct": -15.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AO": {
+      "iso3": "AGO",
+      "name": "Angola",
+      "covered": true,
+      "intensity_g_per_kwh": 185.4,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 186.5,
+        "delta": -1.1,
+        "delta_pct": -0.6,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AR": {
+      "iso3": "ARG",
+      "name": "Argentina",
+      "covered": true,
+      "intensity_g_per_kwh": 342.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 394.7,
+        "delta": -51.8,
+        "delta_pct": -13.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AT": {
+      "iso3": "AUT",
+      "name": "Austria",
+      "covered": true,
+      "intensity_g_per_kwh": 116.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 133.3,
+        "delta": -16.4,
+        "delta_pct": -12.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AU": {
+      "iso3": "AUS",
+      "name": "Australia",
+      "covered": true,
+      "intensity_g_per_kwh": 525.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 642.3,
+        "delta": -117.1,
+        "delta_pct": -18.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "AZ": {
+      "iso3": "AZE",
+      "name": "Azerbaijan",
+      "covered": true,
+      "intensity_g_per_kwh": 631.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 680.0,
+        "delta": -48.1,
+        "delta_pct": -7.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BA": {
+      "iso3": "BIH",
+      "name": "Bosnia Herzegovina",
+      "covered": true,
+      "intensity_g_per_kwh": 570.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 711.1,
+        "delta": -140.5,
+        "delta_pct": -19.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BD": {
+      "iso3": "BGD",
+      "name": "Bangladesh",
+      "covered": true,
+      "intensity_g_per_kwh": 696.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 678.9,
+        "delta": 17.2,
+        "delta_pct": 2.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BE": {
+      "iso3": "BEL",
+      "name": "Belgium",
+      "covered": true,
+      "intensity_g_per_kwh": 149.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 166.6,
+        "delta": -16.8,
+        "delta_pct": -10.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BG": {
+      "iso3": "BGR",
+      "name": "Bulgaria",
+      "covered": true,
+      "intensity_g_per_kwh": 275.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 383.9,
+        "delta": -108.4,
+        "delta_pct": -28.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BH": {
+      "iso3": "BHR",
+      "name": "Bahrain",
+      "covered": true,
+      "intensity_g_per_kwh": 902.2,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 904.3,
+        "delta": -2.0,
+        "delta_pct": -0.2,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BN": {
+      "iso3": "BRN",
+      "name": "Brunei Darussalam",
+      "covered": true,
+      "intensity_g_per_kwh": 892.1,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 896.5,
+        "delta": -4.5,
+        "delta_pct": -0.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BO": {
+      "iso3": "BOL",
+      "name": "Bolivia",
+      "covered": true,
+      "intensity_g_per_kwh": 481.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 483.9,
+        "delta": -2.6,
+        "delta_pct": -0.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BR": {
+      "iso3": "BRA",
+      "name": "Brazil",
+      "covered": true,
+      "intensity_g_per_kwh": 110.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 133.4,
+        "delta": -23.4,
+        "delta_pct": -17.6,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BS": {
+      "iso3": "BHS",
+      "name": "Bahamas (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 653.3,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 656.7,
+        "delta": -3.4,
+        "delta_pct": -0.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BT": {
+      "iso3": "BTN",
+      "name": "Bhutan",
+      "covered": true,
+      "intensity_g_per_kwh": 23.6,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 24.3,
+        "delta": -0.6,
+        "delta_pct": -2.6,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BW": {
+      "iso3": "BWA",
+      "name": "Botswana",
+      "covered": true,
+      "intensity_g_per_kwh": 851.3,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 852.6,
+        "delta": -1.3,
+        "delta_pct": -0.2,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "BY": {
+      "iso3": "BLR",
+      "name": "Belarus",
+      "covered": true,
+      "intensity_g_per_kwh": 309.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 498.7,
+        "delta": -189.4,
+        "delta_pct": -38.0,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CA": {
+      "iso3": "CAN",
+      "name": "Canada",
+      "covered": true,
+      "intensity_g_per_kwh": 190.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 161.7,
+        "delta": 28.9,
+        "delta_pct": 17.9,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CH": {
+      "iso3": "CHE",
+      "name": "Switzerland",
+      "covered": true,
+      "intensity_g_per_kwh": 39.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 36.6,
+        "delta": 2.6,
+        "delta_pct": 7.0,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CI": {
+      "iso3": "CIV",
+      "name": "Cote d'Ivoire",
+      "covered": true,
+      "intensity_g_per_kwh": 405.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 382.7,
+        "delta": 22.3,
+        "delta_pct": 5.8,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CL": {
+      "iso3": "CHL",
+      "name": "Chile",
+      "covered": true,
+      "intensity_g_per_kwh": 289.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 436.8,
+        "delta": -147.3,
+        "delta_pct": -33.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CN": {
+      "iso3": "CHN",
+      "name": "China",
+      "covered": true,
+      "intensity_g_per_kwh": 526.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 606.3,
+        "delta": -79.8,
+        "delta_pct": -13.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CO": {
+      "iso3": "COL",
+      "name": "Colombia",
+      "covered": true,
+      "intensity_g_per_kwh": 186.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 271.2,
+        "delta": -84.4,
+        "delta_pct": -31.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CR": {
+      "iso3": "CRI",
+      "name": "Costa Rica",
+      "covered": true,
+      "intensity_g_per_kwh": 24.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 27.3,
+        "delta": -3.1,
+        "delta_pct": -11.4,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CU": {
+      "iso3": "CUB",
+      "name": "Cuba",
+      "covered": true,
+      "intensity_g_per_kwh": 642.8,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 641.1,
+        "delta": 1.8,
+        "delta_pct": 0.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CY": {
+      "iso3": "CYP",
+      "name": "Cyprus",
+      "covered": true,
+      "intensity_g_per_kwh": 489.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 581.4,
+        "delta": -92.4,
+        "delta_pct": -15.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "CZ": {
+      "iso3": "CZE",
+      "name": "Czechia",
+      "covered": true,
+      "intensity_g_per_kwh": 401.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 460.2,
+        "delta": -58.7,
+        "delta_pct": -12.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "DE": {
+      "iso3": "DEU",
+      "name": "Germany",
+      "covered": true,
+      "intensity_g_per_kwh": 329.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 355.6,
+        "delta": -26.0,
+        "delta_pct": -7.3,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "DK": {
+      "iso3": "DNK",
+      "name": "Denmark",
+      "covered": true,
+      "intensity_g_per_kwh": 114.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 188.9,
+        "delta": -74.5,
+        "delta_pct": -39.4,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "DO": {
+      "iso3": "DOM",
+      "name": "Dominican Republic (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 537.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 581.3,
+        "delta": -43.8,
+        "delta_pct": -7.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "DZ": {
+      "iso3": "DZA",
+      "name": "Algeria",
+      "covered": true,
+      "intensity_g_per_kwh": 632.9,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 632.8,
+        "delta": 0.2,
+        "delta_pct": 0.0,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "EC": {
+      "iso3": "ECU",
+      "name": "Ecuador",
+      "covered": true,
+      "intensity_g_per_kwh": 159.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 159.5,
+        "delta": -0.5,
+        "delta_pct": -0.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "EE": {
+      "iso3": "EST",
+      "name": "Estonia",
+      "covered": true,
+      "intensity_g_per_kwh": 319.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 404.6,
+        "delta": -85.5,
+        "delta_pct": -21.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "EG": {
+      "iso3": "EGY",
+      "name": "Egypt",
+      "covered": true,
+      "intensity_g_per_kwh": 563.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 569.1,
+        "delta": -5.9,
+        "delta_pct": -1.0,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ES": {
+      "iso3": "ESP",
+      "name": "Spain",
+      "covered": true,
+      "intensity_g_per_kwh": 153.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 199.1,
+        "delta": -45.5,
+        "delta_pct": -22.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ET": {
+      "iso3": "ETH",
+      "name": "Ethiopia",
+      "covered": true,
+      "intensity_g_per_kwh": 23.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 24.3,
+        "delta": -1.2,
+        "delta_pct": -5.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "FI": {
+      "iso3": "FIN",
+      "name": "Finland",
+      "covered": true,
+      "intensity_g_per_kwh": 57.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 130.3,
+        "delta": -72.8,
+        "delta_pct": -55.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "FR": {
+      "iso3": "FRA",
+      "name": "France",
+      "covered": true,
+      "intensity_g_per_kwh": 41.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 59.1,
+        "delta": -17.6,
+        "delta_pct": -29.9,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "GB": {
+      "iso3": "GBR",
+      "name": "United Kingdom",
+      "covered": true,
+      "intensity_g_per_kwh": 217.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 242.5,
+        "delta": -25.1,
+        "delta_pct": -10.4,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "GE": {
+      "iso3": "GEO",
+      "name": "Georgia",
+      "covered": true,
+      "intensity_g_per_kwh": 145.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 175.6,
+        "delta": -29.7,
+        "delta_pct": -16.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "GH": {
+      "iso3": "GHA",
+      "name": "Ghana",
+      "covered": true,
+      "intensity_g_per_kwh": 468.9,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 416.8,
+        "delta": 52.1,
+        "delta_pct": 12.5,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "GR": {
+      "iso3": "GRC",
+      "name": "Greece",
+      "covered": true,
+      "intensity_g_per_kwh": 315.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 423.1,
+        "delta": -108.0,
+        "delta_pct": -25.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "GT": {
+      "iso3": "GTM",
+      "name": "Guatemala",
+      "covered": true,
+      "intensity_g_per_kwh": 301.5,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 363.8,
+        "delta": -62.3,
+        "delta_pct": -17.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "HK": {
+      "iso3": "HKG",
+      "name": "Hong Kong",
+      "covered": true,
+      "intensity_g_per_kwh": 675.5,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 776.7,
+        "delta": -101.2,
+        "delta_pct": -13.0,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "HN": {
+      "iso3": "HND",
+      "name": "Honduras",
+      "covered": true,
+      "intensity_g_per_kwh": 322.1,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 342.4,
+        "delta": -20.3,
+        "delta_pct": -5.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "HR": {
+      "iso3": "HRV",
+      "name": "Croatia",
+      "covered": true,
+      "intensity_g_per_kwh": 158.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 226.8,
+        "delta": -68.3,
+        "delta_pct": -30.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "HU": {
+      "iso3": "HUN",
+      "name": "Hungary",
+      "covered": true,
+      "intensity_g_per_kwh": 163.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 257.4,
+        "delta": -94.4,
+        "delta_pct": -36.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ID": {
+      "iso3": "IDN",
+      "name": "Indonesia",
+      "covered": true,
+      "intensity_g_per_kwh": 680.2,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 693.8,
+        "delta": -13.6,
+        "delta_pct": -2.0,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IE": {
+      "iso3": "IRL",
+      "name": "Ireland",
+      "covered": true,
+      "intensity_g_per_kwh": 256.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 291.1,
+        "delta": -34.7,
+        "delta_pct": -11.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IL": {
+      "iso3": "ISR",
+      "name": "Israel",
+      "covered": true,
+      "intensity_g_per_kwh": 492.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 615.2,
+        "delta": -122.5,
+        "delta_pct": -19.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IN": {
+      "iso3": "IND",
+      "name": "India",
+      "covered": true,
+      "intensity_g_per_kwh": 670.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 709.1,
+        "delta": -38.9,
+        "delta_pct": -5.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IQ": {
+      "iso3": "IRQ",
+      "name": "Iraq",
+      "covered": true,
+      "intensity_g_per_kwh": 683.1,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 668.9,
+        "delta": 14.2,
+        "delta_pct": 2.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IR": {
+      "iso3": "IRN",
+      "name": "Iran (Islamic Republic of)",
+      "covered": true,
+      "intensity_g_per_kwh": 659.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 632.8,
+        "delta": 26.7,
+        "delta_pct": 4.2,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IS": {
+      "iso3": "ISL",
+      "name": "Iceland",
+      "covered": true,
+      "intensity_g_per_kwh": 27.8,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 28.4,
+        "delta": -0.6,
+        "delta_pct": -2.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "IT": {
+      "iso3": "ITA",
+      "name": "Italy",
+      "covered": true,
+      "intensity_g_per_kwh": 284.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 334.2,
+        "delta": -49.4,
+        "delta_pct": -14.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "JM": {
+      "iso3": "JAM",
+      "name": "Jamaica",
+      "covered": true,
+      "intensity_g_per_kwh": 563.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 571.1,
+        "delta": -8.1,
+        "delta_pct": -1.4,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "JO": {
+      "iso3": "JOR",
+      "name": "Jordan",
+      "covered": true,
+      "intensity_g_per_kwh": 529.8,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 596.7,
+        "delta": -66.9,
+        "delta_pct": -11.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "JP": {
+      "iso3": "JPN",
+      "name": "Japan",
+      "covered": true,
+      "intensity_g_per_kwh": 477.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 527.8,
+        "delta": -50.5,
+        "delta_pct": -9.6,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "KE": {
+      "iso3": "KEN",
+      "name": "Kenya",
+      "covered": true,
+      "intensity_g_per_kwh": 95.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 71.9,
+        "delta": 23.5,
+        "delta_pct": 32.7,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "KG": {
+      "iso3": "KGZ",
+      "name": "Kyrgyzstan",
+      "covered": true,
+      "intensity_g_per_kwh": 152.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 105.2,
+        "delta": 47.5,
+        "delta_pct": 45.2,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "KH": {
+      "iso3": "KHM",
+      "name": "Cambodia",
+      "covered": true,
+      "intensity_g_per_kwh": 498.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 385.6,
+        "delta": 113.2,
+        "delta_pct": 29.4,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "KR": {
+      "iso3": "KOR",
+      "name": "South Korea",
+      "covered": true,
+      "intensity_g_per_kwh": 417.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 457.6,
+        "delta": -40.6,
+        "delta_pct": -8.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "KW": {
+      "iso3": "KWT",
+      "name": "Kuwait",
+      "covered": true,
+      "intensity_g_per_kwh": 635.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 650.2,
+        "delta": -14.9,
+        "delta_pct": -2.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "KZ": {
+      "iso3": "KAZ",
+      "name": "Kazakhstan",
+      "covered": true,
+      "intensity_g_per_kwh": 805.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 835.9,
+        "delta": -30.6,
+        "delta_pct": -3.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LA": {
+      "iso3": "LAO",
+      "name": "Lao People's Democratic Republic (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 232.1,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 350.5,
+        "delta": -118.4,
+        "delta_pct": -33.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LB": {
+      "iso3": "LBN",
+      "name": "Lebanon",
+      "covered": true,
+      "intensity_g_per_kwh": 389.5,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 625.8,
+        "delta": -236.2,
+        "delta_pct": -37.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LI": {
+      "iso3": "LIE",
+      "covered": false,
+      "note": "no Ember data available for this ISO3"
+    },
+    "LK": {
+      "iso3": "LKA",
+      "name": "Sri Lanka",
+      "covered": true,
+      "intensity_g_per_kwh": 329.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 512.7,
+        "delta": -183.5,
+        "delta_pct": -35.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LT": {
+      "iso3": "LTU",
+      "name": "Lithuania",
+      "covered": true,
+      "intensity_g_per_kwh": 138.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 231.9,
+        "delta": -93.6,
+        "delta_pct": -40.3,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LU": {
+      "iso3": "LUX",
+      "name": "Luxembourg",
+      "covered": true,
+      "intensity_g_per_kwh": 123.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 163.9,
+        "delta": -40.6,
+        "delta_pct": -24.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LV": {
+      "iso3": "LVA",
+      "name": "Latvia",
+      "covered": true,
+      "intensity_g_per_kwh": 138.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 176.6,
+        "delta": -37.8,
+        "delta_pct": -21.4,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "LY": {
+      "iso3": "LBY",
+      "name": "Libya",
+      "covered": true,
+      "intensity_g_per_kwh": 826.8,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 810.0,
+        "delta": 16.8,
+        "delta_pct": 2.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MA": {
+      "iso3": "MAR",
+      "name": "Morocco",
+      "covered": true,
+      "intensity_g_per_kwh": 602.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 645.6,
+        "delta": -43.4,
+        "delta_pct": -6.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MC": {
+      "iso3": "MCO",
+      "covered": false,
+      "note": "no Ember data available for this ISO3"
+    },
+    "MD": {
+      "iso3": "MDA",
+      "name": "Moldova",
+      "covered": true,
+      "intensity_g_per_kwh": 633.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 673.1,
+        "delta": -40.0,
+        "delta_pct": -5.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ME": {
+      "iso3": "MNE",
+      "name": "Montenegro",
+      "covered": true,
+      "intensity_g_per_kwh": 264.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 495.6,
+        "delta": -231.3,
+        "delta_pct": -46.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MG": {
+      "iso3": "MDG",
+      "name": "Madagascar",
+      "covered": true,
+      "intensity_g_per_kwh": 432.1,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 449.4,
+        "delta": -17.3,
+        "delta_pct": -3.8,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MK": {
+      "iso3": "MKD",
+      "name": "North Macedonia",
+      "covered": true,
+      "intensity_g_per_kwh": 441.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 623.6,
+        "delta": -182.2,
+        "delta_pct": -29.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ML": {
+      "iso3": "MLI",
+      "name": "Mali",
+      "covered": true,
+      "intensity_g_per_kwh": 538.6,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 417.3,
+        "delta": 121.3,
+        "delta_pct": 29.1,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MM": {
+      "iso3": "MMR",
+      "name": "Myanmar",
+      "covered": true,
+      "intensity_g_per_kwh": 503.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 419.3,
+        "delta": 83.7,
+        "delta_pct": 20.0,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MN": {
+      "iso3": "MNG",
+      "name": "Mongolia",
+      "covered": true,
+      "intensity_g_per_kwh": 816.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 810.2,
+        "delta": 6.1,
+        "delta_pct": 0.7,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MT": {
+      "iso3": "MLT",
+      "name": "Malta",
+      "covered": true,
+      "intensity_g_per_kwh": 484.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 507.0,
+        "delta": -23.0,
+        "delta_pct": -4.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MU": {
+      "iso3": "MUS",
+      "name": "Mauritius",
+      "covered": true,
+      "intensity_g_per_kwh": 642.2,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 619.2,
+        "delta": 23.0,
+        "delta_pct": 3.7,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MV": {
+      "iso3": "MDV",
+      "name": "Maldives",
+      "covered": true,
+      "intensity_g_per_kwh": 611.8,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 629.6,
+        "delta": -17.9,
+        "delta_pct": -2.8,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MX": {
+      "iso3": "MEX",
+      "name": "Mexico",
+      "covered": true,
+      "intensity_g_per_kwh": 474.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 484.1,
+        "delta": -10.0,
+        "delta_pct": -2.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MY": {
+      "iso3": "MYS",
+      "name": "Malaysia",
+      "covered": true,
+      "intensity_g_per_kwh": 602.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 633.7,
+        "delta": -31.7,
+        "delta_pct": -5.0,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "MZ": {
+      "iso3": "MOZ",
+      "name": "Mozambique",
+      "covered": true,
+      "intensity_g_per_kwh": 129.4,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 154.3,
+        "delta": -24.9,
+        "delta_pct": -16.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NA": {
+      "iso3": "NAM",
+      "name": "Namibia",
+      "covered": true,
+      "intensity_g_per_kwh": 48.8,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 58.0,
+        "delta": -9.2,
+        "delta_pct": -15.9,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NE": {
+      "iso3": "NER",
+      "name": "Niger (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 673.7,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 686.6,
+        "delta": -12.9,
+        "delta_pct": -1.9,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NG": {
+      "iso3": "NGA",
+      "name": "Nigeria",
+      "covered": true,
+      "intensity_g_per_kwh": 455.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 523.4,
+        "delta": -67.7,
+        "delta_pct": -12.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NI": {
+      "iso3": "NIC",
+      "name": "Nicaragua",
+      "covered": true,
+      "intensity_g_per_kwh": 300.9,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 334.1,
+        "delta": -33.2,
+        "delta_pct": -9.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NL": {
+      "iso3": "NLD",
+      "name": "Netherlands",
+      "covered": true,
+      "intensity_g_per_kwh": 253.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 342.9,
+        "delta": -89.3,
+        "delta_pct": -26.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NO": {
+      "iso3": "NOR",
+      "name": "Norway",
+      "covered": true,
+      "intensity_g_per_kwh": 28.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 30.4,
+        "delta": -2.3,
+        "delta_pct": -7.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NP": {
+      "iso3": "NPL",
+      "name": "Nepal",
+      "covered": true,
+      "intensity_g_per_kwh": 24.3,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 22.8,
+        "delta": 1.5,
+        "delta_pct": 6.6,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "NZ": {
+      "iso3": "NZL",
+      "name": "New Zealand",
+      "covered": true,
+      "intensity_g_per_kwh": 92.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 142.1,
+        "delta": -49.3,
+        "delta_pct": -34.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "OM": {
+      "iso3": "OMN",
+      "name": "Oman",
+      "covered": true,
+      "intensity_g_per_kwh": 544.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 565.2,
+        "delta": -20.7,
+        "delta_pct": -3.7,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PA": {
+      "iso3": "PAN",
+      "name": "Panama",
+      "covered": true,
+      "intensity_g_per_kwh": 221.2,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 325.6,
+        "delta": -104.5,
+        "delta_pct": -32.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PE": {
+      "iso3": "PER",
+      "name": "Peru",
+      "covered": true,
+      "intensity_g_per_kwh": 238.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 239.7,
+        "delta": -1.4,
+        "delta_pct": -0.6,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PG": {
+      "iso3": "PNG",
+      "name": "Papua New Guinea",
+      "covered": true,
+      "intensity_g_per_kwh": 513.7,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 495.3,
+        "delta": 18.4,
+        "delta_pct": 3.7,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PH": {
+      "iso3": "PHL",
+      "name": "Philippines (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 588.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 598.8,
+        "delta": -10.5,
+        "delta_pct": -1.8,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PK": {
+      "iso3": "PAK",
+      "name": "Pakistan",
+      "covered": true,
+      "intensity_g_per_kwh": 469.0,
+      "data_year": 2019,
+      "data_year_lag": 7,
+      "freshness": "stale",
+      "trend_5y": {
+        "reference_year": 2014,
+        "reference_value": 432.8,
+        "delta": 36.2,
+        "delta_pct": 8.4,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PL": {
+      "iso3": "POL",
+      "name": "Poland",
+      "covered": true,
+      "intensity_g_per_kwh": 588.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 738.3,
+        "delta": -149.7,
+        "delta_pct": -20.3,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PS": {
+      "iso3": "PSE",
+      "name": "Palestine, State of",
+      "covered": true,
+      "intensity_g_per_kwh": 414.1,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 567.9,
+        "delta": -153.8,
+        "delta_pct": -27.1,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PT": {
+      "iso3": "PRT",
+      "name": "Portugal",
+      "covered": true,
+      "intensity_g_per_kwh": 127.9,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 248.3,
+        "delta": -120.4,
+        "delta_pct": -48.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "PY": {
+      "iso3": "PRY",
+      "name": "Paraguay",
+      "covered": true,
+      "intensity_g_per_kwh": 24.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 24.9,
+        "delta": -0.2,
+        "delta_pct": -0.7,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "QA": {
+      "iso3": "QAT",
+      "name": "Qatar",
+      "covered": true,
+      "intensity_g_per_kwh": 581.5,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 602.6,
+        "delta": -21.1,
+        "delta_pct": -3.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "RO": {
+      "iso3": "ROU",
+      "name": "Romania",
+      "covered": true,
+      "intensity_g_per_kwh": 259.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 277.9,
+        "delta": -18.1,
+        "delta_pct": -6.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "RS": {
+      "iso3": "SRB",
+      "name": "Serbia",
+      "covered": true,
+      "intensity_g_per_kwh": 695.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 736.1,
+        "delta": -40.4,
+        "delta_pct": -5.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "RU": {
+      "iso3": "RUS",
+      "name": "Russian Federation (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 449.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 417.6,
+        "delta": 32.1,
+        "delta_pct": 7.7,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "RW": {
+      "iso3": "RWA",
+      "name": "Rwanda",
+      "covered": true,
+      "intensity_g_per_kwh": 354.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 329.4,
+        "delta": 24.6,
+        "delta_pct": 7.5,
+        "classification": "up"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SA": {
+      "iso3": "SAU",
+      "name": "Saudi Arabia",
+      "covered": true,
+      "intensity_g_per_kwh": 692.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 701.7,
+        "delta": -9.8,
+        "delta_pct": -1.4,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SC": {
+      "iso3": "SYC",
+      "name": "Seychelles",
+      "covered": true,
+      "intensity_g_per_kwh": 555.6,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 614.0,
+        "delta": -58.5,
+        "delta_pct": -9.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SD": {
+      "iso3": "SDN",
+      "name": "Sudan (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 153.7,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 254.6,
+        "delta": -100.9,
+        "delta_pct": -39.6,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SE": {
+      "iso3": "SWE",
+      "name": "Sweden",
+      "covered": true,
+      "intensity_g_per_kwh": 35.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 38.7,
+        "delta": -3.5,
+        "delta_pct": -8.9,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SG": {
+      "iso3": "SGP",
+      "name": "Singapore",
+      "covered": true,
+      "intensity_g_per_kwh": 497.1,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 504.6,
+        "delta": -7.5,
+        "delta_pct": -1.5,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SI": {
+      "iso3": "SVN",
+      "name": "Slovenia",
+      "covered": true,
+      "intensity_g_per_kwh": 183.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 277.1,
+        "delta": -93.8,
+        "delta_pct": -33.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SK": {
+      "iso3": "SVK",
+      "name": "Slovakia",
+      "covered": true,
+      "intensity_g_per_kwh": 94.8,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 158.5,
+        "delta": -63.7,
+        "delta_pct": -40.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SM": {
+      "iso3": "SMR",
+      "covered": false,
+      "note": "no Ember data available for this ISO3"
+    },
+    "SN": {
+      "iso3": "SEN",
+      "name": "Senegal",
+      "covered": true,
+      "intensity_g_per_kwh": 540.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 610.0,
+        "delta": -70.0,
+        "delta_pct": -11.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SV": {
+      "iso3": "SLV",
+      "name": "El Salvador",
+      "covered": true,
+      "intensity_g_per_kwh": 139.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 152.4,
+        "delta": -13.1,
+        "delta_pct": -8.6,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "SY": {
+      "iso3": "SYR",
+      "name": "Syrian Arab Republic (the)",
+      "covered": true,
+      "intensity_g_per_kwh": 706.2,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 697.1,
+        "delta": 9.1,
+        "delta_pct": 1.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TH": {
+      "iso3": "THA",
+      "name": "Thailand",
+      "covered": true,
+      "intensity_g_per_kwh": 545.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 570.5,
+        "delta": -24.8,
+        "delta_pct": -4.3,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TJ": {
+      "iso3": "TJK",
+      "name": "Tajikistan",
+      "covered": true,
+      "intensity_g_per_kwh": 72.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 110.0,
+        "delta": -37.4,
+        "delta_pct": -34.0,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TL": {
+      "iso3": "TLS",
+      "name": "Timor-Leste",
+      "covered": true,
+      "intensity_g_per_kwh": 666.7,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 653.9,
+        "delta": 12.8,
+        "delta_pct": 2.0,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TN": {
+      "iso3": "TUN",
+      "name": "Tunisia",
+      "covered": true,
+      "intensity_g_per_kwh": 560.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 564.5,
+        "delta": -4.3,
+        "delta_pct": -0.8,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TR": {
+      "iso3": "TUR",
+      "name": "Turkey",
+      "covered": true,
+      "intensity_g_per_kwh": 474.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 482.4,
+        "delta": -7.7,
+        "delta_pct": -1.6,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TT": {
+      "iso3": "TTO",
+      "name": "Trinidad and Tobago",
+      "covered": true,
+      "intensity_g_per_kwh": 681.7,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 681.5,
+        "delta": 0.2,
+        "delta_pct": 0.0,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TW": {
+      "iso3": "TWN",
+      "name": "Taiwan",
+      "covered": true,
+      "intensity_g_per_kwh": 633.2,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 648.1,
+        "delta": -14.8,
+        "delta_pct": -2.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "TZ": {
+      "iso3": "TZA",
+      "name": "Tanzania, the United Republic of",
+      "covered": true,
+      "intensity_g_per_kwh": 345.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 337.2,
+        "delta": 7.8,
+        "delta_pct": 2.3,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "UA": {
+      "iso3": "UKR",
+      "name": "Ukraine",
+      "covered": true,
+      "intensity_g_per_kwh": 250.5,
+      "data_year": 2022,
+      "data_year_lag": 4,
+      "freshness": "aged",
+      "trend_5y": {
+        "reference_year": 2017,
+        "reference_value": 347.2,
+        "delta": -96.8,
+        "delta_pct": -27.9,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "UG": {
+      "iso3": "UGA",
+      "name": "Uganda",
+      "covered": true,
+      "intensity_g_per_kwh": 58.5,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 56.8,
+        "delta": 1.8,
+        "delta_pct": 3.1,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "US": {
+      "iso3": "USA",
+      "name": "United States of America",
+      "covered": true,
+      "intensity_g_per_kwh": 384.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 411.7,
+        "delta": -27.3,
+        "delta_pct": -6.6,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "UY": {
+      "iso3": "URY",
+      "name": "Uruguay",
+      "covered": true,
+      "intensity_g_per_kwh": 80.4,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 94.3,
+        "delta": -13.9,
+        "delta_pct": -14.8,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "UZ": {
+      "iso3": "UZB",
+      "name": "Uzbekistan",
+      "covered": true,
+      "intensity_g_per_kwh": 1000.0,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 1149.1,
+        "delta": -149.1,
+        "delta_pct": -13.0,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "VE": {
+      "iso3": "VEN",
+      "name": "Venezuela (Bolivarian Republic of)",
+      "covered": true,
+      "intensity_g_per_kwh": 85.9,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 320.9,
+        "delta": -235.0,
+        "delta_pct": -73.2,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "VN": {
+      "iso3": "VNM",
+      "name": "Viet Nam",
+      "covered": true,
+      "intensity_g_per_kwh": 460.7,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 528.4,
+        "delta": -67.7,
+        "delta_pct": -12.8,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "XK": {
+      "iso3": "XKX",
+      "name": "Kosovo",
+      "covered": true,
+      "intensity_g_per_kwh": 900.6,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 958.2,
+        "delta": -57.7,
+        "delta_pct": -6.0,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "YE": {
+      "iso3": "YEM",
+      "name": "Yemen",
+      "covered": true,
+      "intensity_g_per_kwh": 592.4,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 585.4,
+        "delta": 7.0,
+        "delta_pct": 1.2,
+        "classification": "flat"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ZA": {
+      "iso3": "ZAF",
+      "name": "South Africa",
+      "covered": true,
+      "intensity_g_per_kwh": 699.3,
+      "data_year": 2025,
+      "data_year_lag": 1,
+      "freshness": "fresh",
+      "trend_5y": {
+        "reference_year": 2020,
+        "reference_value": 763.1,
+        "delta": -63.9,
+        "delta_pct": -8.4,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    },
+    "ZW": {
+      "iso3": "ZWE",
+      "name": "Zimbabwe",
+      "covered": true,
+      "intensity_g_per_kwh": 384.0,
+      "data_year": 2024,
+      "data_year_lag": 2,
+      "freshness": "recent",
+      "trend_5y": {
+        "reference_year": 2019,
+        "reference_value": 429.2,
+        "delta": -45.2,
+        "delta_pct": -10.5,
+        "classification": "down"
+      },
+      "world_avg_g_per_kwh": 458.5
+    }
+  }
+}

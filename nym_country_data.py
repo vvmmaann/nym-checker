@@ -20,7 +20,10 @@ Data sources:
 - crypto_friendly: legal framework for crypto (0-10 scale)
 - neighbors: list of country codes (for entry-gateway demand calc)
 
-All numbers are best-effort approximations. Sources can be updated via /admin/country-data API.
+Numeric metrics (population, gdp_per_capita, internet_penetration, freedom_total, press_freedom)
+are OVERLAID from country_metrics.json (built by build_country_data.py from primary sources:
+World Bank API + Freedom House + RSF). Hardcoded values below act as fallback only for
+countries missing from those datasets. Run build_country_data.py to regenerate metrics.
 """
 
 COUNTRIES = {
@@ -244,7 +247,7 @@ COUNTRIES = {
            "neighbors": ["RU", "CN"]},  # Direct gateway for Chinese + Russian users
     "KG": {"name": "Kyrgyzstan", "population": 6.8, "internet_penetration": 0.78, "gdp_per_capita": 2.0,
            "freedom_total": 27, "freedom_on_net": 56, "press_freedom": 60, "vpn_legal": "legal",
-           "operator_risk": "caution",
+           "operator_risk": "safe",
            "tor_friendly": True, "five_eyes": None, "data_retention": "moderate", "crypto_friendly": 5,
            "neighbors": ["KZ", "CN", "UZ", "TJ"]},
     "UZ": {"name": "Uzbekistan", "population": 36.0, "internet_penetration": 0.81, "gdp_per_capita": 2.5,
@@ -681,6 +684,118 @@ COUNTRIES = {
 }
 # Cleanup placeholder
 COUNTRIES.pop("CN_NE", None)
+
+
+# ── Overlay primary-source metrics from country_metrics.json ───────────────
+_METRICS_BUNDLE = {}
+COUNTRY_DATA_SOURCES = {}
+
+def _load_country_metrics_overlay():
+    """Overlay World Bank + Freedom House + RSF values onto COUNTRIES.
+    Hardcoded values above stay as fallback for countries missing from any dataset.
+    Populates COUNTRY_DATA_SOURCES so backend endpoints can expose attribution.
+    """
+    import json
+    from pathlib import Path
+    global _METRICS_BUNDLE
+    metrics_path = Path(__file__).parent / "country_metrics.json"
+    if not metrics_path.exists():
+        return
+    try:
+        bundle = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    _METRICS_BUNDLE = bundle
+    data = bundle.get("data", {}) or {}
+    sources_meta = (bundle.get("_meta", {}) or {}).get("sources", {}) or {}
+    overlay_map = [
+        ("population_millions",  "population",           "population_millions"),
+        ("gdp_per_capita_kusd",  "gdp_per_capita",       "gdp_per_capita_kusd"),
+        ("internet_penetration", "internet_penetration", "internet_penetration"),
+        ("freedom_total",        "freedom_total",        "freedom_total"),
+        ("press_freedom",        "press_freedom",        "press_freedom"),
+    ]
+    for cc, m in data.items():
+        if cc not in COUNTRIES:
+            continue
+        country_sources = {}
+        for json_key, target_key, source_key in overlay_map:
+            if json_key in m and m[json_key] is not None:
+                COUNTRIES[cc][target_key] = m[json_key]
+                src = sources_meta.get(source_key, {})
+                country_sources[target_key] = {
+                    "value": m[json_key],
+                    "source": src.get("url"),
+                    "provider": src.get("provider"),
+                    "as_of": src.get("as_of") or src.get("data_year"),
+                }
+        if country_sources:
+            COUNTRY_DATA_SOURCES[cc] = country_sources
+
+
+_load_country_metrics_overlay()
+
+
+# ── Overlay grid carbon intensity from grid_intensity.json (Ember) ─────────
+def _load_grid_intensity_overlay():
+    """Overlay Ember grid CO2 intensity (gCO2/kWh) onto COUNTRIES.
+
+    Source: Ember Yearly Electricity Data (CC-BY-4.0).
+    Adds per-country fields: grid_intensity_g_per_kwh, grid_intensity_year,
+    grid_intensity_trend_5y, grid_intensity_freshness.
+    World average is stored on the module-level GRID_INTENSITY_WORLD_AVG.
+    Builder script: backend/build_grid_intensity.py
+    """
+    import json
+    from pathlib import Path
+    global GRID_INTENSITY_WORLD_AVG
+    GRID_INTENSITY_WORLD_AVG = None
+    path = Path(__file__).parent / "grid_intensity.json"
+    if not path.exists():
+        return
+    try:
+        bundle = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    meta = bundle.get("_meta", {}) or {}
+    countries = bundle.get("countries", {}) or {}
+    world = (meta.get("world_average") or {})
+    if world:
+        GRID_INTENSITY_WORLD_AVG = {
+            "value": world.get("value"),
+            "year": world.get("year"),
+        }
+    source_info = {
+        "source": meta.get("source_landing"),
+        "provider": meta.get("source_name"),
+        "indicator": meta.get("source_indicator"),
+        "license": meta.get("license"),
+        "verified_at": meta.get("verified_at"),
+    }
+    for cc, entry in countries.items():
+        if cc not in COUNTRIES:
+            continue
+        if not entry.get("covered"):
+            continue
+        COUNTRIES[cc]["grid_intensity_g_per_kwh"] = entry.get("intensity_g_per_kwh")
+        COUNTRIES[cc]["grid_intensity_year"] = entry.get("data_year")
+        COUNTRIES[cc]["grid_intensity_freshness"] = entry.get("freshness")
+        trend = entry.get("trend_5y") or {}
+        if trend:
+            COUNTRIES[cc]["grid_intensity_trend_5y"] = trend.get("classification")
+            COUNTRIES[cc]["grid_intensity_trend_pct"] = trend.get("delta_pct")
+            COUNTRIES[cc]["grid_intensity_trend_ref_year"] = trend.get("reference_year")
+            COUNTRIES[cc]["grid_intensity_trend_ref_value"] = trend.get("reference_value")
+        existing = COUNTRY_DATA_SOURCES.setdefault(cc, {})
+        existing["grid_intensity_g_per_kwh"] = {
+            "value": entry.get("intensity_g_per_kwh"),
+            "as_of": entry.get("data_year"),
+            **source_info,
+        }
+
+
+GRID_INTENSITY_WORLD_AVG = None
+_load_grid_intensity_overlay()
 
 
 def country_score(cc, nodes_count, total_network_nodes):

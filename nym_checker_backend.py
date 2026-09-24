@@ -204,6 +204,9 @@ PORT_CHANGES_FILE=Path("nym_port_changes.json")
 AUTO_SYNC_INTERVAL=10800  # 3 hours
 ALLOWED_ORIGINS=os.environ.get("CORS_ORIGINS","").split(",") if os.environ.get("CORS_ORIGINS") else []
 app.add_middleware(CORSMiddleware,allow_origins=ALLOWED_ORIGINS,allow_methods=["GET","POST"],allow_headers=["X-Admin-Token"])
+# gzip compression for responses >= 1KB (knocks /api/nodes 220KB -> ~30KB)
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 REF_FILE=Path("nym_reference.json")
 CACHE_FILE=Path("nym_nodes_cache.json")
@@ -234,14 +237,42 @@ DEF_REF={
       "gateway_extra":[{"port":9000,"proto":"tcp","desc":"Clients WS"}],
       "gateway_infra":[{"port":80,"proto":"tcp","desc":"HTTP (nginx)"},{"port":443,"proto":"tcp","desc":"HTTPS (nginx)"},{"port":9001,"proto":"tcp","desc":"WSS (nginx)"}],
       "wireguard_extra":[{"port":51822,"proto":"udp","desc":"WireGuard"}],"ntm_extra":[{"port":41264,"proto":"tcp","desc":"Lewes Protocol"},{"port":51264,"proto":"udp","desc":"Lewes Protocol"}]},
-    "min_hardware":{"cpu_cores":2,"ram_mb":4096},"min_hardware_gateway":{"cpu_cores":4,"ram_mb":8192},
+    # Hardware requirements: hardcoded baseline, since the official docs render the
+    # NymNodeSpecs values via a React component (JS) that raw markdown / WebFetch
+    # cannot read. Community consensus (multiple operator guides, 2024-2026) and the
+    # values shipped in the official setup script agree on these numbers. Auto-sync
+    # would require a headless browser; for now they are manually verified and the
+    # frontend points operators at the live docs URL for the authoritative table.
+    "min_hardware":{"cpu_cores":2,"ram_mb":4096},
+    "min_hardware_gateway":{"cpu_cores":4,"ram_mb":8192},
+    "min_hardware_meta":{
+        "verified_at":"2026-05-12",
+        "source":"https://nym.com/docs/operators/nodes/preliminary-steps/vps-setup",
+        "method":"manual",
+        "note":"NymNodeSpecs component on Nym docs is JS-rendered. Check the source URL for authoritative current values."
+    },
     "github_ntm_url":"https://raw.githubusercontent.com/nymtech/nym/refs/heads/develop/scripts/nym-node-setup/network-tunnel-manager.sh",
-    "nodes_api":"https://validator.nymtech.net/api/v1/nym-nodes/described"
+    "nodes_api":"https://validator.nymtech.net/api/v1/nym-nodes/described",
+    "bonded_api":"https://validator.nymtech.net/api/v1/nym-nodes/bonded"
 }
 
 def load_ref():
-    if REF_FILE.exists():return json.loads(REF_FILE.read_text())
-    import copy;return copy.deepcopy(DEF_REF)
+    """Load reference data from disk, merged on top of DEF_REF so that newly added
+    default fields appear automatically even when the on-disk file predates them."""
+    import copy
+    base = copy.deepcopy(DEF_REF)
+    if REF_FILE.exists():
+        try:
+            persisted = json.loads(REF_FILE.read_text())
+            if isinstance(persisted, dict):
+                base.update(persisted)
+                # Fill in any new default-only keys that the persisted file is missing
+                for k, v in DEF_REF.items():
+                    if k not in persisted:
+                        base[k] = copy.deepcopy(v)
+        except Exception:
+            pass
+    return base
 def save_ref(r):REF_FILE.write_text(json.dumps(r,indent=2,ensure_ascii=False))
 
 def load_port_changes():
@@ -265,6 +296,191 @@ def _flatten_ports(ref):
 
 @app.get("/",include_in_schema=False)
 async def frontend():return FileResponse(STATIC_DIR/"index.html")
+
+@app.get("/country/{cc}",include_in_schema=False)
+async def country_page(cc:str):
+    """Per-country deep-dive page. Same index.html, JS bootstrap resolves the route."""
+    return FileResponse(STATIC_DIR/"index.html")
+
+@app.get("/provider/{asn}",include_in_schema=False)
+async def provider_page(asn:str):
+    """Per-provider deep-dive page. Same index.html, JS bootstrap resolves the route."""
+    return FileResponse(STATIC_DIR/"index.html")
+
+_OPERATOR_GENERIC_TOKENS = {"node","nym","gateway","mixnode","exit","entry","mix","gw","mainnet","testnet"}
+_op_keys_cache = {"file_ts": None, "by_ip": {}}  # ip -> canonical key
+
+def _operator_key_raw(moniker:str):
+    """Stage 1: extract a normalized key from a single moniker.
+
+    Splits on non-alphanumeric AND on camelCase boundaries so 'BwNymGama'
+    becomes ['bw','nym','gama'] - matching the same handling as 'bwnym-pr-quwi'
+    which becomes ['bwnym','pr','quwi']. Generic words and trailing digits stripped.
+    Returns None if no usable token survives.
+    """
+    if not moniker: return None
+    import re
+    # Insert space at camelCase boundaries: BwNymGama -> Bw Nym Gama
+    cased = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", str(moniker))
+    norm = re.sub(r"[^a-zA-Z0-9]+", " ", cased).strip().lower()
+    if not norm: return None
+    tokens = [t for t in norm.split() if t not in _OPERATOR_GENERIC_TOKENS and len(t) >= 3]
+    if not tokens: return None
+    first = re.sub(r"\d+$", "", tokens[0])  # strip trailing digits
+    out = first if len(first) >= 3 else tokens[0]
+    return out or None
+
+
+def _compute_operator_keys(nodes):
+    """Stage 2: merge brand variants. We compute a raw key per node via tokenization,
+    plus the FULL lowercased alphanumeric moniker (no separators). Then for each
+    node we check if any canonical raw-key (>=2 nodes) is a prefix of the full
+    lowercased moniker. If so, that canonical key becomes the operator key.
+
+    This catches:
+      'bwnym-mote-DE' -> raw 'bwnym', full 'bwnymmoteDE'
+      'BwNymGama'     -> raw 'gama' (bw too short, nym generic), full 'bwnymgama'
+                       -> matches canonical 'bwnym' as prefix -> merged to 'bwnym'
+      'NYMLEM STOCKHOLM GW' -> raw 'nymlem'
+      '✅🌐✅NYMLEM✅🌐✅' -> raw 'nymlem'
+    Returns dict {ip: canonical_key}.
+    """
+    import re
+    initial = {}
+    full_alphanum = {}
+    for n in nodes:
+        m = n.get("moniker","") or ""
+        ip = n.get("ip","") or ""
+        if not ip: continue
+        k = _operator_key_raw(m)
+        if k: initial[ip] = k
+        full_alphanum[ip] = re.sub(r"[^a-z0-9]", "", m.lower())
+    counts = {}
+    for k in initial.values():
+        counts[k] = counts.get(k, 0) + 1
+    # Canonical: keys with >=2 nodes. Sort longest-first so we prefer specific brands.
+    canonical = sorted([k for k, c in counts.items() if c >= 2 and len(k) >= 3], key=lambda x: -len(x))
+    final = {}
+    for ip in full_alphanum:
+        full = full_alphanum.get(ip, "")
+        raw = initial.get(ip)
+        merged = raw
+        # Look for any canonical key that is a prefix of the full lowercased moniker
+        for c in canonical:
+            if full.startswith(c):
+                merged = c
+                break
+        if merged:
+            final[ip] = merged
+    return final
+
+
+def _refresh_op_keys_cache(force=False):
+    """Recompute operator_keys cache when node cache file changes."""
+    try:
+        if not CACHE_FILE.exists():
+            _op_keys_cache["by_ip"] = {}
+            _op_keys_cache["file_ts"] = None
+            return
+        fts = CACHE_FILE.stat().st_mtime
+        if not force and fts == _op_keys_cache["file_ts"]:
+            return
+        nodes = _nodes_mem.get("nodes") or []
+        if not nodes and CACHE_FILE.exists():
+            nodes = json.loads(CACHE_FILE.read_text()).get("nodes", [])
+        _op_keys_cache["by_ip"] = _compute_operator_keys(nodes)
+        _op_keys_cache["file_ts"] = fts
+    except Exception:
+        pass
+
+
+def _operator_key(moniker:str):
+    """Public entry retained for callers that only have moniker. Stage 1 only.
+    For accurate brand-merged grouping use _operator_key_for_ip(ip)."""
+    return _operator_key_raw(moniker)
+
+
+def _operator_key_for_ip(ip:str):
+    """Return the canonical brand-merged operator key for a given node IP, or None."""
+    _refresh_op_keys_cache()
+    return _op_keys_cache["by_ip"].get(ip)
+
+
+@app.get("/operator/{key}",include_in_schema=False)
+async def operator_page(key:str):
+    """Per-operator profile page. Same index.html, JS bootstrap resolves the route."""
+    return FileResponse(STATIC_DIR/"index.html")
+
+@app.get("/wallet/{address}",include_in_schema=False)
+async def wallet_page(address:str):
+    """Per-wallet explorer page (deep-link / new tab). Same index.html, JS bootstrap resolves it."""
+    return FileResponse(STATIC_DIR/"index.html")
+
+@app.get("/plan",include_in_schema=False)
+async def plan_page():
+    """Plan-your-node wizard page. Same index.html, JS handles state."""
+    return FileResponse(STATIC_DIR/"index.html")
+
+@app.get("/api/operator/{key}")
+async def operator_profile(key:str):
+    """Group all nodes whose moniker shares the given operator key (brand-prefix, merged)."""
+    nodes_all = await _cnodes()
+    _refresh_op_keys_cache()
+    key_norm = (key or "").lower()
+    if not key_norm:
+        return JSONResponse({"error":"empty key"}, status_code=400)
+    op_nodes = [n for n in nodes_all if _op_keys_cache["by_ip"].get(n.get("ip","")) == key_norm]
+    if not op_nodes:
+        return JSONResponse({"error":"no nodes found for this operator key","key":key_norm}, status_code=404)
+    by_mode = {}
+    by_country = {}
+    by_provider = {}
+    versions = {}
+    wallets = set()
+    for n in op_nodes:
+        m = n.get("mode","unknown") or "unknown"
+        cc = (n.get("location") or "??").upper() or "??"
+        v = n.get("version","") or ""
+        by_mode[m] = by_mode.get(m, 0) + 1
+        by_country[cc] = by_country.get(cc, 0) + 1
+        if v: versions[v] = versions.get(v, 0) + 1
+        if n.get("owner"): wallets.add(n["owner"])
+    try:
+        ip_asn = _ip_to_asn_cache if isinstance(_ip_to_asn_cache, dict) else {}
+    except Exception:
+        ip_asn = {}
+    for n in op_nodes:
+        info = ip_asn.get(n.get("ip","")) if ip_asn else None
+        if info:
+            asn = str(info.get("asn",""))
+            if asn: by_provider[asn] = by_provider.get(asn, 0) + 1
+    # Display name: longest common prefix across actual monikers, fallback to first moniker
+    monikers = [n.get("moniker","") for n in op_nodes if n.get("moniker")]
+    moniker_sample = monikers[0] if monikers else key_norm
+    return {
+        "key": key_norm,
+        "node_count": len(op_nodes),
+        "wallet_count": len(wallets),
+        "moniker_sample": moniker_sample,
+        "by_mode": by_mode,
+        "by_country": by_country,
+        "by_provider": by_provider,
+        "by_version": versions,
+        "nodes": op_nodes,
+    }
+
+
+@app.get("/api/operator-key-of/{ip}")
+async def operator_key_of(ip:str):
+    """Return the canonical (brand-merged) operator key for a node by IP, plus shared-node count."""
+    await _cnodes()  # ensure cache loaded
+    _refresh_op_keys_cache()
+    key = _op_keys_cache["by_ip"].get(ip)
+    if not key:
+        return {"key": None, "count": 0}
+    count = sum(1 for k in _op_keys_cache["by_ip"].values() if k == key)
+    node = next((n for n in (_nodes_mem.get("nodes") or []) if n.get("ip")==ip), None)
+    return {"key": key, "count": count, "moniker": (node or {}).get("moniker","")}
 
 # ── Lightweight visit analytics ─────────────────────────────
 HITS_FILE=Path("nym_hits.jsonl")
@@ -490,6 +706,172 @@ async def sync_ref(_:bool=Depends(require_admin)):
     save_ref(ref)
     return{"status":"ok" if not errors else "partial","errors":errors,"reference":ref}
 
+# Region groupings for plan recommendations - kept here so frontend and backend agree
+_PLAN_REGIONS = {
+    "eu": {"DE","FI","FR","GB","NL","PL","RO","BG","GR","CZ","AT","CH","IT","ES","PT","IE","BE","DK","SE","NO","HU","SK","EE","LV","LT","LU","MD","UA","RS","HR","SI","IS","CY","MT","AL","MK","ME","BA","XK"},
+    "asia": {"JP","SG","HK","TW","KR","AU","NZ","IN","ID","TH","MY","PH","VN","KG","KZ"},
+    "americas": {"US","CA","BR","MX","AR","CL","CO","PE","UY","PA","CR","EC","DO"},
+    "africa": {"ZA","EG","MA","KE","NG","SC","IL","TR","AE"},
+}
+
+@app.get("/api/plan")
+async def plan_recommendation(node_type:str=Query("any"), exp:str=Query("some"), region:str=Query("any")):
+    """Generate a coherent deployment plan that cross-references country and providers.
+
+    Outputs top countries that BOTH match the user's filter AND have at least one
+    quality hosting provider currently used by other Nym operators there. Each
+    country in the result includes the actual providers present in it.
+    """
+    if not _DEPLOY_AVAILABLE:
+        return JSONResponse({"error":"deploy data not loaded"}, status_code=503)
+    nodes_all = await _cnodes()
+    total = len(nodes_all)
+    if not total:
+        return JSONResponse({"error":"no nodes data"}, status_code=503)
+    ref = load_ref()
+    ip_to_asn = _asn_cache.get("ip_to_asn",{})
+    asn_names = _asn_cache.get("asn_names",{})
+
+    # Determine actual node type to recommend
+    pt = node_type
+    if pt == "any":
+        pt = "mixnode" if exp == "novice" else "entry-gateway"
+
+    # Build country -> nodes count + per-ASN nodes count (used as "battle-tested" evidence)
+    by_country_count = {}
+    nodes_per_asn_global = {}  # asn -> total nodes globally on this ASN
+    nodes_in_cc_asn = {}  # (cc, asn) -> nodes count there on this asn
+    for n in nodes_all:
+        cc = (n.get("location","") or "").upper()
+        ip = n.get("ip","") or ""
+        if cc:
+            by_country_count[cc] = by_country_count.get(cc, 0) + 1
+        info = ip_to_asn.get(ip) or {}
+        asn = info.get("asn")
+        if asn:
+            nodes_per_asn_global[asn] = nodes_per_asn_global.get(asn, 0) + 1
+            if cc:
+                nodes_in_cc_asn[(cc, asn)] = nodes_in_cc_asn.get((cc, asn), 0) + 1
+
+    region_filter = _PLAN_REGIONS.get(region) if region != "any" else None
+    try:
+        from nym_provider_data import provider_score as _ps, PROVIDERS as _PROVIDERS_DICT
+    except Exception:
+        _ps = None
+        _PROVIDERS_DICT = {}
+
+    # Build country -> [asn] mapping from PROVIDERS official countries field (verified from each provider site)
+    country_to_official_asns = {}
+    for asn, pinfo in (_PROVIDERS_DICT or {}).items():
+        ccs = pinfo.get("countries") or []
+        for cc in ccs:
+            country_to_official_asns.setdefault(cc.upper(), []).append(asn)
+
+    candidate_countries = []
+    for cc in _COUNTRIES:
+        if region_filter and cc not in region_filter:
+            continue
+        s = _country_score(cc, by_country_count.get(cc, 0), total)
+        s["cc"] = cc
+        # Drop hostile classifications regardless of inputs
+        if s.get("classification") in ("not_recommended","saturated"):
+            continue
+        # For exit-gateway recommendations, require safe operator_risk
+        if pt == "exit-gateway" and s.get("operator_risk") != "safe":
+            continue
+        # Find providers that OFFICIALLY serve this country (verified from provider websites)
+        official_asns = country_to_official_asns.get(cc, [])
+        if not official_asns:
+            continue
+        # Score each provider, attach battle-tested evidence (existing Nym nodes in this country on this ASN)
+        scored_provs = []
+        if _ps:
+            for asn in official_asns:
+                here_count = nodes_in_cc_asn.get((cc, asn), 0)
+                global_count = nodes_per_asn_global.get(asn, 0)
+                ps_smtp = None
+                try:
+                    if _smtp_cache:
+                        ss = {"open":0,"partial":0,"blocked":0,"unknown":0}
+                        for nd in nodes_all:
+                            info2 = ip_to_asn.get(nd.get("ip","")) or {}
+                            if info2.get("asn") != asn: continue
+                            if nd.get("mode") != "exit-gateway": continue
+                            sc = _smtp_cache.get(nd.get("ip",""))
+                            if sc:
+                                st = sc.get("status","unknown")
+                                if st in ss: ss[st] += 1
+                        if any(ss.values()): ps_smtp = ss
+                except Exception:
+                    pass
+                pscore = _ps(asn, global_count, total, smtp_stats=ps_smtp, fallback_name=asn_names.get(asn,""))
+                pscore["nodes_in_country"] = here_count
+                pscore["battle_tested_here"] = here_count > 0
+                pinfo = _PROVIDERS_DICT.get(asn) or {}
+                pscore["countries_source"] = pinfo.get("countries_source")
+                pscore["countries_verified_at"] = pinfo.get("countries_verified_at")
+                scored_provs.append(pscore)
+        # Filter quality + bias by experience/type
+        good = [p for p in scored_provs if p.get("classification") in ("great","good","ok")]
+        if pt == "exit-gateway":
+            tor_or_crypto = [p for p in good if (p.get("metadata") or {}).get("crypto_payments") or (p.get("metadata") or {}).get("tor_friendly") is True]
+            if tor_or_crypto: good = tor_or_crypto
+        if exp == "pro":
+            with_crypto = [p for p in good if (p.get("metadata") or {}).get("crypto_payments")]
+            if len(with_crypto) >= 1: good = with_crypto
+        if not good:
+            continue
+        # Sort: battle-tested first, then classification, then score
+        good.sort(key=lambda x: (0 if x.get("battle_tested_here") else 1,
+                                  {"great":0,"good":1,"ok":2}.get(x.get("classification","ok"),3),
+                                  -x.get("score",0)))
+        s["available_providers"] = good[:3]
+        s["all_provider_count"] = len(scored_provs)
+        candidate_countries.append(s)
+
+    # Rank countries: needed_nodes desc, then score desc
+    candidate_countries.sort(key=lambda x: (-x.get("needed_nodes",0), -x.get("score",0)))
+    top_countries = candidate_countries[:3]
+
+    hardware_key = "min_hardware_gateway" if pt != "mixnode" else "min_hardware"
+    return {
+        "node_type": pt,
+        "experience": exp,
+        "region": region,
+        "top_countries": top_countries,
+        "hardware": {
+            "min": ref.get(hardware_key),
+            "meta": ref.get("min_hardware_meta"),
+        },
+        "links": {
+            "docs_root": "https://nym.com/docs/operators/nodes",
+            "vps_setup": (ref.get("min_hardware_meta") or {}).get("source", "https://nym.com/docs/operators/nodes/preliminary-steps/vps-setup"),
+            "init_run": "https://nym.com/docs/operators/binaries/init-and-run",
+        },
+    }
+
+
+@app.post("/api/admin/update-hardware")
+async def admin_update_hardware(_:bool=Depends(require_admin),body:dict=Body(...)):
+    """Admin override for hardware minimum requirements.
+    Body: {"min_hardware":{...}, "min_hardware_gateway":{...}, "verified_at":"YYYY-MM-DD"}
+    """
+    ref = load_ref()
+    if "min_hardware" in body and isinstance(body["min_hardware"], dict):
+        ref["min_hardware"] = body["min_hardware"]
+    if "min_hardware_gateway" in body and isinstance(body["min_hardware_gateway"], dict):
+        ref["min_hardware_gateway"] = body["min_hardware_gateway"]
+    meta = ref.get("min_hardware_meta") or {}
+    if "verified_at" in body:
+        meta["verified_at"] = body["verified_at"]
+    if "source" in body:
+        meta["source"] = body["source"]
+    meta["method"] = "manual-admin-update"
+    ref["min_hardware_meta"] = meta
+    save_ref(ref)
+    return {"ok": True, "ref": {"min_hardware": ref.get("min_hardware"), "min_hardware_gateway": ref.get("min_hardware_gateway"), "min_hardware_meta": ref.get("min_hardware_meta")}}
+
+
 @app.get("/api/reference")
 async def get_ref():return load_ref()
 
@@ -544,7 +926,10 @@ async def network_stats():
         # SMTP status for exit gateways
         if n.get("mode")=="exit-gateway":
             s=_smtp_cache.get(n.get("ip",""),{})
-            st_smtp=s.get("status","unknown")
+            _fm=_smtp_meta.get("file_mtime")
+            _age=int(time.time()-_fm) if _fm else None
+            _stale=_age is not None and _age>SMTP_STALE_SECONDS
+            st_smtp="unknown" if _stale else s.get("status","unknown")
             if st_smtp=="open":smtp_open+=1
             elif st_smtp=="partial":smtp_partial+=1
             elif st_smtp=="blocked":smtp_blocked+=1
@@ -703,6 +1088,12 @@ async def deploy_country_detail(cc: str):
             "version": n.get("version"),
             "wg": n.get("wg"),
         })
+    # Attach per-metric source attribution (World Bank, Freedom House, RSF) where available
+    try:
+        from nym_country_data import COUNTRY_DATA_SOURCES as _CDS
+        score["data_sources"] = _CDS.get(cc, {})
+    except Exception:
+        pass
     return {**score, "nodes": node_list}
 
 @app.get("/api/deploy-recommendations")
@@ -730,12 +1121,18 @@ async def deploy_recommendations():
     grouped = {}
     for r in results:
         grouped.setdefault(r["classification"], []).append(r)
-    # Sort each group by score descending
+    # Sort each group: countries that STILL NEED nodes first (the actionable "deploy here"
+    # entries), then by score. A country that has already met its own target
+    # (needed_nodes == 0, e.g. Norway at 9/8) must not headline a "deploy here" group just
+    # because its composite score is high - it sorts to the tail of its group instead.
     for g in grouped.values():
-        g.sort(key=lambda x: -x.get("score", 0))
-    # Top recommendations (combining highly_recommended + top good)
+        g.sort(key=lambda x: (x.get("needed_nodes", 0) == 0, -x.get("score", 0)))
+    # Top recommendations: high-score, operator-safe, room to grow (nodes_here < 20), and
+    # STILL NEEDS nodes. Excludes countries already at/over their target so a covered country
+    # never appears in the "where to deploy" hero.
     top = sorted(
-        [r for r in results if r["classification"] in ("highly_recommended","good") and r.get("nodes_here",0) < 20],
+        [r for r in results if r["classification"] in ("highly_recommended","good")
+         and r.get("nodes_here",0) < 20 and r.get("needed_nodes",0) > 0],
         key=lambda x: -x.get("score", 0)
     )[:15]
     return {
@@ -753,6 +1150,171 @@ async def deploy_recommendations():
     }
 
 # ── Port Check ──────────────────────────────────────────────
+# Multi-vantage probe agents - HTTP endpoints on remote Nym nodes that perform TCP probes
+# from their network vantage point. Lets us detect "blocked from this IP range" vs
+# "really closed" by comparing results from multiple geographic locations.
+#
+# Env format: comma-separated pairs of "LABEL=URL" so frontend can show regional names
+# (EU/AF/AM/AS) instead of advertising the vantage IPs. Plain "URL" (no label) falls back
+# to the host portion as the label.
+def _parse_probe_agents(raw: str):
+    pairs = []
+    for chunk in raw.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if "=" in chunk:
+            label, _, url = chunk.partition("=")
+            label, url = label.strip(), url.strip()
+        else:
+            url = chunk
+            label = url.split("//")[-1].split("/")[0].split(":")[0]  # fallback to host
+        if url:
+            pairs.append((label or "?", url))
+    return pairs
+
+PROBE_AGENTS = _parse_probe_agents(os.environ.get("PROBE_AGENTS", ""))
+# Back-compat alias for any older callers (now unused internally)
+PROBE_AGENT_URLS = [u for _, u in PROBE_AGENTS]
+
+
+_PROBE_AGENT_HEALTH = {}  # url -> {"alive": bool, "last_check": ts, "consecutive_failures": int}
+_PROBE_AGENT_TIMEOUT = 2.0  # tight timeout so dead vantages do not block checks
+_PROBE_DEACTIVATE_AFTER = 3  # mark dead after N consecutive failures
+_PROBE_RECHECK_INTERVAL = 60  # retry dead agents after this many seconds
+
+
+def _agent_is_alive(url):
+    """Skip agents that recently failed several times in a row, with periodic recheck."""
+    import time
+    h = _PROBE_AGENT_HEALTH.get(url)
+    if not h:
+        return True
+    if h.get("alive", True):
+        return True
+    if time.time() - h.get("last_check", 0) > _PROBE_RECHECK_INTERVAL:
+        return True  # recheck window: give it another chance
+    return False
+
+
+def _agent_record_result(url, success):
+    """Update agent health based on probe result."""
+    import time
+    h = _PROBE_AGENT_HEALTH.setdefault(url, {"alive": True, "last_check": 0, "consecutive_failures": 0})
+    h["last_check"] = time.time()
+    if success:
+        h["alive"] = True
+        h["consecutive_failures"] = 0
+    else:
+        h["consecutive_failures"] = h.get("consecutive_failures", 0) + 1
+        if h["consecutive_failures"] >= _PROBE_DEACTIVATE_AFTER:
+            h["alive"] = False
+
+
+async def _probe_from_agent(client, agent_url, ip, port, proto="tcp", timeout=None):
+    """Hit a remote probe agent with tight timeout + circuit breaker.
+
+    Skips agents that recently failed N consecutive times; retries after RECHECK_INTERVAL.
+    Returns dict or None on failure.
+    """
+    if not _agent_is_alive(agent_url):
+        return None
+    t = timeout if timeout is not None else _PROBE_AGENT_TIMEOUT
+    try:
+        r = await client.get(
+            f"{agent_url.rstrip('/')}/probe",
+            params={"ip": ip, "port": port, "proto": proto},
+            timeout=t,
+        )
+        if r.status_code == 200:
+            _agent_record_result(agent_url, True)
+            return r.json()
+        _agent_record_result(agent_url, False)
+    except Exception:
+        _agent_record_result(agent_url, False)
+        return None
+    return None
+
+
+async def _smtp_probe_from_agent(client, agent_url, timeout=30.0):
+    """Ask agent to probe all configured mail providers from its vantage point."""
+    try:
+        r = await client.get(f"{agent_url.rstrip('/')}/smtp-probe", timeout=timeout)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        return None
+    return None
+
+
+@app.get("/api/smtp-vantages")
+async def smtp_vantages():
+    """Aggregate SMTP reachability from all configured probe agents.
+
+    Returns per-provider matrix keyed by region label (EU/AF/AM/AS), not by IP -
+    keeps the actual vantage node IPs unadvertised.
+    """
+    if not PROBE_AGENTS:
+        return {"error": "no probe agents configured", "vantages": {}}
+    async with httpx.AsyncClient(timeout=35) as client:
+        coros = [_smtp_probe_from_agent(client, url) for _, url in PROBE_AGENTS]
+        responses = await asyncio.gather(*coros, return_exceptions=True)
+    vantages = {}
+    matrix = {}  # provider -> port -> {label: bool}
+    for (label, _url), resp in zip(PROBE_AGENTS, responses):
+        if isinstance(resp, Exception) or resp is None:
+            vantages[label] = {"error": str(resp)[:80] if resp else "unreachable"}
+            continue
+        smtp = (resp.get("smtp") if isinstance(resp, dict) else {}) or {}
+        vantages[label] = {"providers": {}}
+        for prov, info in smtp.items():
+            ports = (info or {}).get("ports") or {}
+            simplified = {}
+            for p, pinfo in ports.items():
+                opened = bool((pinfo or {}).get("open"))
+                simplified[p] = opened
+                matrix.setdefault(prov, {}).setdefault(p, {})[label] = opened
+            vantages[label]["providers"][prov] = simplified
+    return {
+        "agents": list(vantages.keys()),
+        "vantages": vantages,
+        "matrix": matrix,
+        "providers": list({p for v in vantages.values() if "providers" in v for p in v["providers"]}),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+async def _multi_vantage_probe_ports(client, ip, ports_list):
+    """For each TCP port in ports_list, probe from all configured remote agents in parallel.
+
+    Returns dict keyed by "port/proto" -> {agent_label: {open, latency_ms, errno}}.
+    Labels are region tags (EU/AF/AM/AS) configured in PROBE_AGENTS env, NOT IPs.
+    Returns empty dict if no agents are configured (single-vantage fallback).
+    """
+    if not PROBE_AGENTS:
+        return {}
+    results = {}
+    for port_spec in ports_list:
+        port = port_spec.get("port")
+        proto = port_spec.get("proto", "tcp")
+        if not port or proto != "tcp":
+            continue
+        coros = [_probe_from_agent(client, url, ip, port, proto) for _, url in PROBE_AGENTS]
+        agent_responses = await asyncio.gather(*coros, return_exceptions=True)
+        port_results = {}
+        for (label, _url), resp in zip(PROBE_AGENTS, agent_responses):
+            if isinstance(resp, Exception) or resp is None:
+                continue
+            port_results[label] = {
+                "open": bool(resp.get("open")),
+                "latency_ms": resp.get("latency_ms"),
+                "errno": resp.get("errno"),
+            }
+        if port_results:
+            results[f"{port}/{proto}"] = port_results
+    return results
+
+
 async def ck_tcp(host,port,to=3.0):
     """Native asyncio TCP check. Does NOT use the thread pool, so batch checks
     with hundreds of parallel port probes don't starve the executor."""
@@ -999,19 +1561,30 @@ async def _safe_json(client, url, timeout=5):
         return None
 
 async def qnode(client,host,port=8080):
-    """Query node API on port 8080 only. No fallback to port 80."""
-    res={"reachable":False,"roles":None,"description":None,"build_info":None,"auxiliary":None,"host_info":None,"gateway":None,"lp":None}
-    base=f"http://{_host_for_url(host)}:{port}/api/v1"
-    roles=await _safe_json(client,base+"/roles",timeout=5)
-    if roles is not None:
-        res["reachable"]=True;res["roles"]=roles
+    """Query the node's self-describe API. Tries the node's declared custom_http_port first
+    (passed as `port` from the on-chain bond data), then common fallbacks — ~11% of nodes serve
+    their API on a non-8080 port (8000, 8081, 7999, ...) and hardcoding 8080 made them look dead."""
+    res={"reachable":False,"roles":None,"description":None,"build_info":None,"auxiliary":None,"host_info":None,"gateway":None,"lp":None,"http_port":None}
+    candidates=[]
+    for p in (port,8080,8000,9000):
+        if p and p not in candidates:
+            candidates.append(p)
+    for p in candidates:
+        base=f"http://{_host_for_url(host)}:{p}/api/v1"
+        # 3s: a healthy node API answers in <1s; anything slower is effectively down, and the
+        # check cache makes a later retry instant — so fail fast instead of blocking the open.
+        roles=await _safe_json(client,base+"/roles",timeout=3)
+        if roles is None:
+            continue
+        res["reachable"]=True;res["roles"]=roles;res["http_port"]=p
         endpoints={"description":"/description","build_info":"/build-information","auxiliary":"/auxiliary-details","host_info":"/host-information","gateway":"/gateway","lp":"/lewes-protocol"}
-        async def _fetch(k,p):
-            v=await _safe_json(client,base+p,timeout=5)
+        async def _fetch(k,pp):
+            v=await _safe_json(client,base+pp,timeout=5)
             return k,v
-        pairs=await asyncio.gather(*[_fetch(k,p) for k,p in endpoints.items()])
+        pairs=await asyncio.gather(*[_fetch(k,pp) for k,pp in endpoints.items()])
         for k,v in pairs:
             if v is not None:res[k]=v
+        return res
     return res
 
 # IPV6_AGENT_URL set via env (see top). IPV6_AGENT here for legacy code paths only;
@@ -1032,6 +1605,116 @@ _IPV6_ABSENT_TTL = 3600 * 6  # 6h - absent is re-checkable, not permanent
 # Keyed by IP string -> {"status": "open"|"partial"|"blocked", "open_on": [...], "blocked_on": [...]}
 SMTP_RESULTS_FILE = Path(SMTP_RESULTS_FILE_PATH)
 _smtp_cache = {}   # ip_str -> dict
+# Nym official functional probe cache (from the production node-status API that backs
+# Harbour Master: mainnet-node-status-api.nymtech.cc).
+# Their probe goes THROUGH the gateway to test actual routing/exit/WG/SOCKS5 functionality,
+# which is complementary to our INBOUND multi-vantage port probing.
+# NOTE: must use the FULL /v2/gateways endpoint, NOT /v2/gateways/skinny - skinny omits
+# last_probe_result / last_testrun_utc entirely. The full endpoint also does NOT expose
+# ports_check, and routing_score/config_score are deprecated (0 network-wide), so we keep
+# none of those. Gateways only (mixnodes get no functional probe by design), so mixnode
+# keys simply miss the cache and render no section.
+_nym_probe_cache = {}    # identity_key -> {last_probe_result, last_testrun_utc, last_updated_utc, performance}
+_nym_probe_meta = {"last_refresh": None, "total_gateways": 0, "error": None}
+NYM_PROBE_URL = os.environ.get("NYM_PROBE_URL", "https://mainnet-node-status-api.nymtech.cc/v2/gateways")
+NYM_PROBE_REFRESH_SEC = int(os.environ.get("NYM_PROBE_REFRESH_SEC", "900"))  # 15 min default
+
+# --- Nym validator annotation scores (stress / routing / config / performance) ---
+# The gateways functional-probe API above does NOT carry these; only the per-node validator
+# annotation endpoint does. stress_testing_score is the mixnode-only signal that drives
+# rewarded-set selection (gateways report stress 0 / was_reachable=false by design).
+_stress_cache = {}   # node_id -> {stress, stress_reachable, routing, config, performance, last_updated}
+_stress_meta = {"last_refresh": None, "total": 0, "error": None}
+STRESS_ANNOTATION_URL = os.environ.get("NYM_STRESS_URL", "https://validator.nymtech.net/api/v2/nym-nodes/annotation")
+STRESS_REFRESH_SEC = int(os.environ.get("NYM_STRESS_REFRESH_SEC", "900"))  # 15 min default
+STRESS_CONCURRENCY = int(os.environ.get("NYM_STRESS_CONCURRENCY", "24"))
+# Bulk economics for the Nymesis-style explorer table (opcost/margin/delegations/pledge), harvested
+# from the bonded API in a single call (side effect of _fetch_owners). node_id -> {opcost,margin,delegations,pledge}
+_bonded_econ = {}
+# Rewarded (active) set node ids, refreshed on a short TTL for the "ACTIVE" column.
+_rewarded_set = {"ids": set(), "epoch": None, "ts": 0}
+RSET_TTL = int(os.environ.get("NYM_RSET_TTL", "300"))
+REWARDED_SET_URL = os.environ.get("NYM_REWARDED_SET_URL", "https://validator.nymtech.net/api/v1/nym-nodes/rewarded-set")
+# Bulk saturation + total-stake for the explorer table (SAT / STAKE columns). Background sweep of the
+# cheap per-node get_node_stake_saturation contract query (mirrors the annotation sweep pattern).
+_econ_bulk = {}   # node_id -> {"saturation": float|None, "total_stake": float|None}
+_econ_bulk_meta = {"last_refresh": None, "total": 0, "error": None}
+ECON_BULK_REFRESH_SEC = int(os.environ.get("NYM_ECON_BULK_REFRESH_SEC", "1200"))  # 20 min
+ECON_BULK_CONCURRENCY = int(os.environ.get("NYM_ECON_BULK_CONCURRENCY", "10"))
+
+# --- Economics / delegation graph (on-chain via Nyx LCD) ----------------------
+# Node economics (saturation, per-epoch reward, claimable operator reward, owner
+# wallet balance, cost params) and the full delegation graph come from the mixnet
+# contract's smart queries + the bank module. Per-node queries are cached with a TTL
+# and only run on demand (detail view / own nodes), never across all ~800 nodes.
+NYM_LCD = os.environ.get("NYM_LCD", "https://lcd-nyx.keplr.app")
+MIXNET_CONTRACT = os.environ.get("NYM_MIXNET_CONTRACT",
+    "n17srjznxl9dvzdkpwpw24gg668wc73val88a6m5ajg6ankwvz9wtst0cznr")
+# Nym Delegation Program / team wallet: delegates to ~500+ nodes; flags DP-backed nodes.
+NYM_DP_WALLET = os.environ.get("NYM_DP_WALLET", "n1rnxpdpx3kldygsklfft0gech7fhfcux4zst5lw")
+UNYM = 1_000_000  # NYM has 6 decimals
+_econ_cache = {}   # node_id -> {..economics.., "ts": epoch}
+ECON_TTL = int(os.environ.get("NYM_ECON_TTL", "600"))    # 10 min
+_deleg_cache = {}  # node_id -> {"delegations":[...], "ts": epoch}
+DELEG_TTL = int(os.environ.get("NYM_DELEG_TTL", "600"))
+_bal_cache = {}    # addr -> {"balance": nym, "ts": epoch}
+BAL_TTL = int(os.environ.get("NYM_BAL_TTL", "600"))
+_dp_backed = {}    # node_id -> delegated NYM by the DP wallet
+_dp_meta = {"last_refresh": None, "nodes": 0, "total_nym": 0.0, "wallet": NYM_DP_WALLET}
+DP_REFRESH_SEC = int(os.environ.get("NYM_DP_REFRESH_SEC", "3600"))    # hourly
+ECON_CONCURRENCY = int(os.environ.get("NYM_ECON_CONCURRENCY", "8"))
+_reward_params = {"saturation_point": None, "ts": 0}   # cached stake_saturation_point (NYM)
+RP_TTL = int(os.environ.get("NYM_RP_TTL", "3600"))
+# Last non-zero per-epoch operator reward per node — the current-epoch estimate is 0 when a node
+# is out of the active set, so we show this "typical when in the set" figure instead of 0.
+REWARD_TYPICAL_FILE = Path("nym_reward_typical.json")
+def _load_reward_typical():
+    try:
+        return {int(k): v for k, v in json.loads(REWARD_TYPICAL_FILE.read_text()).items()}
+    except Exception:
+        return {}
+_reward_typical = _load_reward_typical()
+def _save_reward_typical():
+    try:
+        REWARD_TYPICAL_FILE.write_text(json.dumps({str(k): v for k, v in _reward_typical.items()}))
+    except Exception:
+        pass
+_wallet_cache = {}   # address -> {..wallet.., "ts": epoch}
+_wallet_tx_cache = {}  # address -> {"v": {...}, "ts": epoch}
+WALLET_TTL = int(os.environ.get("NYM_WALLET_TTL", "180"))
+WALLET_TX_LIMIT = int(os.environ.get("NYM_WALLET_TX_LIMIT", "40"))
+WALLET_REWARD_MAX = int(os.environ.get("NYM_WALLET_REWARD_MAX", "80"))  # cap per-delegation reward lookups
+# --- Full tx-history indexer -------------------------------------------------
+# The public LCD tx-service returns only the most recent ~100 matching txs and ignores
+# pagination offset, so full wallet history needs an archive node. rpc.nyx.nodes.guru is a
+# full archive (earliest_block=1); its Tendermint /tx_search paginates properly. We index
+# each viewed wallet into SQLite once, then serve instantly and tail for new txs.
+NYM_RPC_ARCHIVE = os.environ.get("NYM_RPC_ARCHIVE", "https://rpc.nyx.nodes.guru")
+TXDB = Path("nym_txs.db")
+TX_INDEX_TTL = int(os.environ.get("NYM_TX_INDEX_TTL", "300"))            # re-tail a wallet after 5min
+TX_INDEX_MAX_PAGES = int(os.environ.get("NYM_TX_INDEX_MAX_PAGES", "40"))  # backfill cap (4000 tx/query)
+TX_SERVE_LIMIT = int(os.environ.get("NYM_TX_SERVE_LIMIT", "250"))         # rows returned to the UI
+# Nyx block time is ~5.69s and extremely stable across the whole chain, so a tx timestamp is
+# recovered from its height by piecewise-linear interpolation over these measured (height, UTC)
+# anchors instead of one /block query per tx.
+_HEIGHT_ANCHORS_ISO = [
+    (2000000, "2022-06-13T22:26:42Z"), (8000000, "2023-07-17T19:09:02Z"),
+    (14000000, "2024-08-18T20:11:05Z"), (20000000, "2025-09-09T02:03:34Z"),
+    (24000000, "2026-05-30T16:38:52Z"), (24893877, "2026-07-28T12:49:34Z"),
+]
+def _anchor_epochs():
+    from datetime import datetime
+    out = []
+    for h, iso in _HEIGHT_ANCHORS_ISO:
+        try:
+            out.append((h, datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()))
+        except Exception:
+            pass
+    return sorted(out)
+_HEIGHT_ANCHORS = _anchor_epochs()
+_check_cache = {}    # ip -> {"r": response, "ts": epoch}; makes re-opening a node instant
+CHECK_TTL = int(os.environ.get("NYM_CHECK_TTL", "90"))
+
 _smtp_meta = {}    # "when", "total", etc.
 
 def _load_smtp_cache():
@@ -1154,6 +1837,102 @@ async def ck_ipv6(client, host, ipv6_hint=None, hostname=None):
     _ipv6_cache[host] = {"status": "unknown", "ts": time.time()}
     return False
 
+def _build_provider_advisory(asn):
+    """Top-level advisory for the node's hosting provider.
+
+    Returns the risk_advisory dict from PROVIDERS[asn] if present, enriched
+    with the provider name + aliases so the frontend can render a banner.
+    Returns None if no advisory active.
+    """
+    if not asn:
+        return None
+    try:
+        from nym_provider_data import PROVIDERS as _PROV
+    except Exception:
+        return None
+    p = (_PROV or {}).get(str(asn)) or {}
+    adv = p.get("risk_advisory")
+    if not adv:
+        return None
+    return {
+        "asn": str(asn),
+        "provider_name": p.get("name"),
+        "aliases": p.get("aliases") or [],
+        **adv,
+    }
+
+
+def _build_grid_energy_response(country_code, asn=None):
+    """Build grid energy response: country grid intensity (Ember) + provider renewable tier.
+
+    Returns None if no country code or country has no grid intensity data.
+    The frontend renders a compact row + expand panel with both layers.
+    """
+    if not country_code:
+        return None
+    try:
+        from nym_country_data import COUNTRIES as _COUNTRIES, COUNTRY_DATA_SOURCES as _CDS, GRID_INTENSITY_WORLD_AVG as _WORLD
+    except Exception:
+        return None
+    c = (_COUNTRIES or {}).get(country_code)
+    if not c or "grid_intensity_g_per_kwh" not in c:
+        return None
+    intensity = c.get("grid_intensity_g_per_kwh")
+    band = "unknown"
+    if isinstance(intensity, (int, float)):
+        if intensity < 100:    band = "very_low"
+        elif intensity < 300:  band = "low"
+        elif intensity < 500:  band = "medium"
+        elif intensity < 700:  band = "high"
+        else:                  band = "very_high"
+    src = (_CDS or {}).get(country_code, {}).get("grid_intensity_g_per_kwh", {})
+
+    # Provider renewable layer (looked up by ASN)
+    provider_block = None
+    if asn:
+        try:
+            from nym_provider_data import PROVIDERS as _PROV
+            p = (_PROV or {}).get(str(asn)) or {}
+            r = p.get("renewable")
+            if r:
+                provider_block = {
+                    "name": p.get("name"),
+                    "asn": str(asn),
+                    "tier": r.get("tier"),
+                    "tier_label": r.get("tier_label"),
+                    "verification_confidence": r.get("verification_confidence"),
+                    "claim_summary": r.get("claim_summary"),
+                    "source_url": r.get("source_url"),
+                    "verified_at": r.get("verified_at"),
+                    "datacenters_count": len(r.get("datacenters") or []),
+                }
+        except Exception:
+            pass
+
+    return {
+        "intensity_g_per_kwh": intensity,
+        "intensity_band": band,
+        "data_year": c.get("grid_intensity_year"),
+        "freshness": c.get("grid_intensity_freshness"),
+        "trend_5y": c.get("grid_intensity_trend_5y"),
+        "trend_5y_delta_pct": c.get("grid_intensity_trend_pct"),
+        "trend_5y_reference_year": c.get("grid_intensity_trend_ref_year"),
+        "trend_5y_reference_value": c.get("grid_intensity_trend_ref_value"),
+        "country_code": country_code,
+        "country_name": c.get("name"),
+        "world_avg_g_per_kwh": (_WORLD or {}).get("value") if _WORLD else None,
+        "world_avg_year": (_WORLD or {}).get("year") if _WORLD else None,
+        "source": {
+            "provider": src.get("provider"),
+            "url": src.get("source"),
+            "indicator": src.get("indicator"),
+            "license": src.get("license"),
+            "verified_at": src.get("verified_at"),
+        } if src else None,
+        "provider": provider_block,
+    }
+
+
 def _build_ipv6_response(ip, supported):
     """Build rich IPv6 response with status, source, checked_at, transport_security."""
     cache_entry=_ipv6_cache.get(ip,{})
@@ -1182,8 +1961,17 @@ _probe_sem = asyncio.Semaphore(50)  # global limit on concurrent probes (TCP/UDP
 
 async def _check_ip(client,ip,hostname,ref):
     """Run full check for an already-resolved IP. Shared by /api/check and /api/check-batch."""
-    nd=await qnode(client,ip)
-    if not nd["reachable"]:return _fail(ip,ref,"API on port 8080 not responding",hostname)
+    # Use the node's declared custom_http_port (from the cache, sourced from on-chain bond data)
+    # so nodes serving their API on a non-8080 port are reached instead of shown as unreachable.
+    _cport=None
+    try:
+        _cn=next((cn for cn in (_nodes_mem.get("nodes") or []) if cn.get("ip")==ip),None)
+        _cport=(_cn or {}).get("http_port")
+    except Exception:
+        _cport=None
+    nd=await qnode(client,ip,port=_cport or 8080)
+    if not nd["reachable"]:return _fail(ip,ref,"node API not responding (tried declared port + 8080/8000/9000)",hostname)
+    _apiport=nd.get("http_port") or _cport or 8080  # the API port qnode actually reached, reused below
     roles=nd["roles"] or {};build=nd["build_info"] or {};desc=nd["description"] or {}
     is_mix=roles.get("mixnode_enabled",False)
     is_entry=roles.get("gateway_enabled",False)
@@ -1246,8 +2034,16 @@ async def _check_ip(client,ip,hostname,ref):
             return await coro
     all_ports=rp+infra_ports
     port_coros=[_guarded_probe(ck_tcp(ip,p["port"]) if p["proto"]=="tcp" else ck_udp(ip,p["port"])) for p in all_ports]
-    all_results=await asyncio.gather(*port_coros,_phw(client,ip),ck_ipv6(client,ip,_ipv6_hint,hostname=_hn))
-    port_results=all_results[:len(all_ports)];hw=all_results[-2];ipv6=all_results[-1]
+    # multi-vantage re-probes the same ports independently of the local result, so run it
+    # concurrently with the local probes instead of as a separate sequential await.
+    async def _mv_safe():
+        try:
+            return await _multi_vantage_probe_ports(client, ip, all_ports)
+        except Exception:
+            return {}
+    all_results=await asyncio.gather(*port_coros,_phw(client,ip,_apiport),ck_ipv6(client,ip,_ipv6_hint,hostname=_hn),_mv_safe())
+    _np=len(all_ports)
+    port_results=all_results[:_np];hw=all_results[_np];ipv6=all_results[_np+1];_multi_vantage=all_results[_np+2]
     n_required=len(rp)
     op,mp,likely_open=[],[],[]
     infra_open,infra_closed=[],[]
@@ -1268,11 +2064,19 @@ async def _check_ip(client,ip,hostname,ref):
         else:
             if is_infra: infra_closed.append(label)
             else: mp.append(label)
+    # Attach local result for each port so frontend can compare (multi-vantage ran above, in parallel)
+    if _multi_vantage:
+        for idx,(pi,ok) in enumerate(zip(all_ports,port_results)):
+            if pi["proto"] != "tcp":
+                continue
+            key = f"{pi['port']}/{pi['proto']}"
+            if key in _multi_vantage:
+                _multi_vantage[key]["local"] = {"open": bool(ok)}
     exit_policy_results=None
     has_exit_policy=False
     if is_exit:
         # Per-node exit policy check via node API
-        ep_data=await _safe_json(client,f"http://{_host_for_url(ip)}:8080/api/v1/network-requester/exit-policy",timeout=5)
+        ep_data=await _safe_json(client,f"http://{_host_for_url(ip)}:{_apiport}/api/v1/network-requester/exit-policy",timeout=5)
         if ep_data is None:
             # Fetch failed (timeout/error) — unknown, not a hard no
             exit_policy_results={"declared":None,"status":"unknown","ports":[],"total":0,"node_enabled":None,"upstream_source":""}
@@ -1306,17 +2110,103 @@ async def _check_ip(client,ip,hostname,ref):
         else:
             smtp_result = {"status":"unknown","ok":False,"open_on":[],"blocked_on":[],
                 "checked_at":checked_at,"age_seconds":age,"stale":stale}
+    # Try to enrich with operator wallet (owner) and brand-prefix grouping from the cache.
+    try:
+        _cached = _nodes_mem.get("nodes") or []
+        _own_node = next((cn for cn in _cached if cn.get("ip")==ip), None)
+        _owner = (_own_node or {}).get("owner","") if _own_node else ""
+        _refresh_op_keys_cache()
+        _op_key = _op_keys_cache["by_ip"].get(ip)
+        _op_count = sum(1 for k in _op_keys_cache["by_ip"].values() if k == _op_key) if _op_key else 0
+    except Exception:
+        _owner = ""; _op_key = None; _op_count = 0
+
+    # Comparison stats - peer placement in the network for the user
+    try:
+        _comp = {}
+        # Ensure node cache is populated (lazy-load on first request after restart)
+        await _cnodes()
+        _all = _nodes_mem.get("nodes") or []
+        if _all:
+            _comp["network_total"] = len(_all)
+            _same_mode = [n for n in _all if n.get("mode") == mode]
+            _comp["mode"] = mode
+            _comp["mode_peers"] = len(_same_mode)
+            _own_cc = (aux.get("location","") or "").upper()
+            if _own_cc:
+                _same_country = [n for n in _all if (n.get("location","") or "").upper() == _own_cc]
+                _comp["country"] = _own_cc
+                _comp["country_count"] = len(_same_country)
+                _comp["country_pct"] = round(len(_same_country)/len(_all)*100, 1)
+            # ASN comparison via ip_to_asn cache
+            _asn_cache_local = _asn_cache.get("ip_to_asn", {}) if isinstance(_asn_cache.get("ip_to_asn"), dict) else {}
+            _own_asn_info = _asn_cache_local.get(ip) or {}
+            _own_asn = _own_asn_info.get("asn")
+            if _own_asn:
+                _same_asn = [n for n in _all if (_asn_cache_local.get(n.get("ip","")) or {}).get("asn") == _own_asn]
+                _comp["asn"] = _own_asn
+                _comp["asn_name"] = _asn_cache.get("asn_names",{}).get(_own_asn,"")
+                _comp["asn_count"] = len(_same_asn)
+                _comp["asn_pct"] = round(len(_same_asn)/len(_all)*100, 1)
+            # Version distribution among same-mode peers - compute version_status on the fly for each peer
+            _own_vs_raw = _build_version_response(cur, lat, ref.get("prerelease_version")) or {}
+            _own_vs = _own_vs_raw.get("status") if isinstance(_own_vs_raw, dict) else None
+            if _own_vs:
+                _prerel = ref.get("prerelease_version")
+                _peer_status = {}
+                for n in _same_mode:
+                    nip = n.get("ip","")
+                    pv = n.get("version","")
+                    if not pv:
+                        _peer_status[nip] = "unknown"; continue
+                    pvs = _build_version_response(pv, lat, _prerel) or {}
+                    _peer_status[nip] = pvs.get("status","unknown") if isinstance(pvs, dict) else "unknown"
+                _vd = {"current":0, "prerelease":0, "behind":0, "unknown":0}
+                for s in _peer_status.values():
+                    if s not in _vd: s = "unknown"
+                    _vd[s] += 1
+                _comp["version_status"] = _own_vs
+                _comp["version_distribution_same_mode"] = _vd
+                # "Ahead of" rank: count of nodes you outrank by version (behind worst, current/prerelease better)
+                _order = {"behind":0, "unknown":1, "current":2, "prerelease":3}
+                _own_rank = _order.get(_own_vs, 1)
+                _ahead = sum(1 for s in _peer_status.values() if _order.get(s, 1) < _own_rank)
+                _comp["version_better_than_pct"] = round(_ahead/max(len(_same_mode),1)*100, 1)
+            # WireGuard share for same-mode peers (relevant for entry/exit)
+            # Use cached wg (derived from nym-api described listing) as source of truth -
+            # live _check_ip wg flag is taken from authenticator_enabled which lags behind
+            # actual deployment for nodes that have wireguard config but not yet polled.
+            if mode in ("entry-gateway","exit-gateway"):
+                _wg_share = sum(1 for n in _same_mode if n.get("wg"))
+                _comp["wg_pct_same_mode"] = round(_wg_share/max(len(_same_mode),1)*100, 1)
+                _own_wg_cached = bool((_own_node or {}).get("wg")) if _own_node else None
+                _comp["has_wg"] = _own_wg_cached if _own_wg_cached is not None else wg
+    except Exception as _comp_err:
+        _comp = {"error": str(_comp_err)}
+    # node_id lets the frontend lazy-load on-chain economics + delegations (never blocks the check)
+    _eid = (_own_node or {}).get("node_id") if _own_node else None
     return {"node_ip":ip,"hostname":hostname,"check_timestamp":datetime.now(timezone.utc).isoformat(),
         "score":score,"mode":mode,"wireguard_enabled":wg,
         "version":_build_version_response(cur,lat,ref.get("prerelease_version")),
         "ports":{"total":len(rp),"open":len(op),"missing":mp,"likely_open":likely_open,"ok":len(mp)==0,
-            "infra":{"total":len(infra_ports),"open":infra_open,"closed":infra_closed,"ok":len(infra_closed)==0} if infra_ports else None},
+            "infra":{"total":len(infra_ports),"open":infra_open,"closed":infra_closed,"ok":len(infra_closed)==0} if infra_ports else None,
+            "multi_vantage":_multi_vantage if _multi_vantage else None},
         "ipv6":_build_ipv6_response(ip,ipv6),"hardware":hw,"toc":{"accepted":toc,"ok":toc},
         "description":{"moniker":desc.get("moniker",""),"website":desc.get("website",""),"security_contact":desc.get("security_contact","")},
         "auxiliary":{"location":aux.get("location","")},
         "roles":{"mixnode":is_mix,"entry_gateway":is_entry,"exit_gateway":is_exit},
         "exit_policy":exit_policy_results,
         "smtp":smtp_result,
+        "grid_energy":_build_grid_energy_response(aux.get("location",""), _comp.get("asn") if isinstance(_comp, dict) else None),
+        "provider_advisory":_build_provider_advisory(_comp.get("asn") if isinstance(_comp, dict) else None),
+        "functional_probe":_build_functional_probe_response((_own_node or {}).get("identity_key") if _own_node else None, _multi_vantage),
+        "stress":_build_stress_response((_own_node or {}).get("node_id") if _own_node else None),
+        "node_id":_eid,
+        "owner":_owner,
+        "identity_key":(_own_node or {}).get("identity_key","") if _own_node else "",
+        "operator_key":_op_key,
+        "operator_count":_op_count,
+        "comparison":_comp,
         "reference_version":lat,"reference_updated":ref.get("updated_at"),"min_hardware":mh}
 
 @app.get("/api/check")
@@ -1351,7 +2241,12 @@ async def check_node(request:Request,target:str=Query(...,max_length=MAX_TARGET_
     # Try each resolved address until one responds
     async with httpx.AsyncClient() as client:
         for ip in candidates:
-            result=await _check_ip(client,ip,hostname,ref)
+            _ce=_check_cache.get(ip)
+            if _ce and (time.time()-_ce["ts"])<CHECK_TTL:
+                result=_ce["r"]
+            else:
+                result=await _check_ip(client,ip,hostname,ref)
+                _check_cache[ip]={"r":result,"ts":time.time()}
             if not result.get("error") or "not responding" not in str(result.get("error","")):
                 return JSONResponse(result)
         return JSONResponse(result)  # return last failure
@@ -1412,9 +2307,9 @@ def _fail(ip,ref,msg,hostname=None):
         "ipv6":None,"hardware":None,"toc":None,"description":None,"auxiliary":None,"roles":None,
         "error":msg,"reference_version":ref.get("latest_version"),"reference_updated":ref.get("updated_at"),"min_hardware":ref.get("min_hardware",{})}
 
-async def _phw(client, host):
-    """Fetch hardware from node system-info endpoint."""
-    d = await _safe_json(client, f"http://{_host_for_url(host)}:8080/api/v1/system-info", timeout=5)
+async def _phw(client, host, port=8080):
+    """Fetch hardware from node system-info endpoint (on the node's real API port)."""
+    d = await _safe_json(client, f"http://{_host_for_url(host)}:{port}/api/v1/system-info", timeout=5)
     if isinstance(d, dict):
         try:
             cpu_list = d.get("hardware", {}).get("cpu", [])
@@ -1496,12 +2391,18 @@ def _score(cur,lat,miss,total,ipv6,hw,mh,toc,is_exit=False,has_exit_policy=False
 # ── Node Directory with Moniker fetching ────────────────────
 MONIKER_FILE=Path("nym_monikers.json")
 
-async def _fetch_moniker(client,ip):
-    try:
-        r=await client.get(f"http://{_host_for_url(ip)}:8080/api/v1/description",timeout=3)
-        if r.status_code==200:
-            return r.json().get("moniker","")
-    except:pass
+async def _fetch_moniker(client,ip,port=8080):
+    # try the node's declared custom_http_port first, then common fallbacks — ~11% of nodes
+    # serve their API off :8080, which otherwise left them with a blank (default) moniker.
+    tried=[]
+    for p in (port,8080,8000):
+        if not p or p in tried:continue
+        tried.append(p)
+        try:
+            r=await client.get(f"http://{_host_for_url(ip)}:{p}/api/v1/description",timeout=3)
+            if r.status_code==200:
+                return r.json().get("moniker","")
+        except:pass
     return ""
 
 async def _fetch_monikers_batch(nodes,batch_size=50):
@@ -1512,9 +2413,14 @@ async def _fetch_monikers_batch(nodes,batch_size=50):
         try:monikers=json.loads(MONIKER_FILE.read_text())
         except:pass
 
-    # Fetch: missing + empty (retry failures) + all if file older than 24h (stale refresh)
-    file_age=time.time()-(MONIKER_FILE.stat().st_mtime if MONIKER_FILE.exists() else 0)
-    stale=file_age>86400
+    # Fetch: missing + empty (retry failures) + ALL if the last FULL refresh was >24h ago.
+    # The 24h clock lives in a marker key INSIDE the file, NOT the file mtime: the file is
+    # rewritten every cycle to retry empty/new nodes, and an mtime-based check reset itself
+    # each rewrite, so it never went stale and a renamed node's cached name never updated.
+    _FULL_KEY="__full_refresh_ts__"
+    _last_full=monikers.get(_FULL_KEY) if isinstance(monikers.get(_FULL_KEY),(int,float)) else 0
+    stale=(time.time()-_last_full)>86400
+    _port_by_ip={n["ip"]:n.get("http_port") for n in nodes}
     ips_to_fetch=[n["ip"] for n in nodes if n["ip"] not in monikers or not monikers[n["ip"]] or stale]
     if not ips_to_fetch:
         return monikers
@@ -1523,14 +2429,16 @@ async def _fetch_monikers_batch(nodes,batch_size=50):
     async with httpx.AsyncClient() as client:
         for i in range(0,len(ips_to_fetch),batch_size):
             batch=ips_to_fetch[i:i+batch_size]
-            results=await asyncio.gather(*[_fetch_moniker(client,ip) for ip in batch])
+            results=await asyncio.gather(*[_fetch_moniker(client,ip,_port_by_ip.get(ip) or 8080) for ip in batch])
             for ip,m in zip(batch,results):
                 monikers[ip]=m
             print(f"[*] Monikers: {i+len(batch)}/{len(ips_to_fetch)}")
 
+    if stale:                       # stamp the full-refresh clock only when we did a full pass
+        monikers[_FULL_KEY]=time.time()
     try:MONIKER_FILE.write_text(json.dumps(monikers,ensure_ascii=False))
     except:pass
-    print(f"[*] Monikers saved: {sum(1 for v in monikers.values() if v)} with names")
+    print(f"[*] Monikers saved: {sum(1 for k,v in monikers.items() if k!=_FULL_KEY and v)} with names")
     return monikers
 
 @app.get("/api/nodes")
@@ -1544,14 +2452,107 @@ async def list_nodes(mode:Optional[str]=Query(None,max_length=32),country:Option
             return JSONResponse({"error":"q must be at least 3 characters"},status_code=400)
         ql=qs.lower()
         nodes=[n for n in nodes if ql in n.get("ip","").lower() or ql in n.get("moniker","").lower() or ql in(n.get("hostname") or "").lower() or ql in n.get("identity_key","").lower() or ql in str(n.get("node_id","")).lower()]
-    _LIST_KEYS=("node_id","ip","hostname","moniker","mode","location","version","wg","identity_key")
+    _LIST_KEYS=("node_id","ip","hostname","moniker","mode","location","version","wg","owner","identity_key")
     ref=load_ref();latest=ref.get("latest_version","");prerelease=ref.get("prerelease_version")
     slim=[]
     for n in nodes:
-        item={k:n.get(k) for k in _LIST_KEYS}
-        item["version_status"]=_build_version_response(n.get("version",""),latest,prerelease).get("status","unknown")
+        # Drop nulls/empty strings to shrink payload (gzip still helps, but smaller JSON parses faster)
+        item={k:v for k in _LIST_KEYS if (v:=n.get(k)) not in (None,"",False)}
+        # wg=false is meaningful (not just missing), restore it explicitly
+        item["wg"]=bool(n.get("wg"))
+        # toc=false (operator T&C not accepted) is meaningful too - Nymi watches it for alerts
+        item["toc"]=bool(n.get("toc"))
+        vs=_build_version_response(n.get("version",""),latest,prerelease).get("status","unknown")
+        if vs!="unknown":item["version_status"]=vs
+        _se=_stress_cache.get(n.get("node_id"))
+        # only surface stress for stress-tested nodes (mixnodes reachable by the monitor);
+        # gateways/untested report 0/was_reachable=false and would read as false failures
+        if _se and _se.get("stress") is not None and _se.get("stress_reachable"):item["stress"]=_se["stress"]
+        _db=_dp_backed.get(n.get("node_id"))
+        if _db:item["dp_backed"]=_db
         slim.append(item)
     return{"count":len(slim),"nodes":slim,"latest_version":latest,"prerelease_version":prerelease}
+
+async def _get_rewarded_set():
+    """Active/rewarded set node ids (for the ACTIVE column), cached RSET_TTL."""
+    import time
+    if _rewarded_set["ids"] and (time.time() - _rewarded_set["ts"]) < RSET_TTL:
+        return _rewarded_set["ids"]
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(REWARDED_SET_URL, headers={"User-Agent": "nym-checker/1.0"})
+            j = r.json()
+        ids = set()
+        for k in ("entry_gateways", "exit_gateways", "standby", "layer1", "layer2", "layer3"):
+            for x in (j.get(k) or []):
+                try: ids.add(int(x))
+                except Exception: pass
+        mx = j.get("mixnodes")
+        if isinstance(mx, dict):
+            for layer in mx.values():
+                for x in (layer or []):
+                    try: ids.add(int(x))
+                    except Exception: pass
+        elif isinstance(mx, list):
+            for x in mx:
+                try: ids.add(int(x))
+                except Exception: pass
+        if ids:
+            _rewarded_set["ids"] = ids
+            _rewarded_set["epoch"] = j.get("epoch_id")
+            _rewarded_set["ts"] = time.time()
+    except Exception as e:
+        print("[!] rewarded-set: " + str(e))
+    return _rewarded_set["ids"]
+
+@app.get("/api/nymesis")
+async def nymesis_table():
+    """Bulk explorer table (Nymesis-style): one row per node from already-cached sources
+    (node cache + annotation/stress cache + bonded econ + rewarded-set + DP map). Cheap — no
+    per-node LCD. Saturation / total-stake / owner-reward are intentionally omitted (they need
+    per-node contract queries) and load lazily in the node detail view instead."""
+    nodes = await _cnodes()
+    if not _bonded_econ:
+        try:
+            async with httpx.AsyncClient() as c:
+                await _fetch_owners(c)
+        except Exception:
+            pass
+    active = await _get_rewarded_set()
+    ref = load_ref(); latest = ref.get("latest_version", ""); prerelease = ref.get("prerelease_version")
+    rows = []
+    for n in nodes:
+        nid = n.get("node_id")
+        if nid is None:
+            continue
+        se = _stress_cache.get(nid) or {}
+        be = _bonded_econ.get(nid) or {}
+        eb = _econ_bulk.get(nid) or {}
+        vs = _build_version_response(n.get("version", ""), latest, prerelease).get("status", "unknown")
+        rows.append({
+            "node_id": nid,
+            "moniker": n.get("moniker", ""),
+            "ip": n.get("ip", ""),
+            "identity_key": n.get("identity_key", ""),
+            "country": n.get("location", ""),
+            "version": n.get("version", ""),
+            "version_status": vs,
+            "mode": n.get("mode", ""),
+            "perf": se.get("performance"),
+            "config": se.get("config"),
+            "routing": se.get("routing"),
+            "stress": se.get("stress") if se.get("stress_reachable") else None,
+            "delegations": be.get("delegations"),
+            "opcost": be.get("opcost"),
+            "margin": be.get("margin"),
+            "pledge": be.get("pledge"),
+            "saturation": eb.get("saturation"),
+            "total_stake": eb.get("total_stake"),
+            "owner_reward": eb.get("owner_reward"),
+            "active": nid in active,
+            "dp": bool(_dp_backed.get(nid)),
+        })
+    return {"count": len(rows), "rows": rows, "epoch": _rewarded_set.get("epoch"), "latest_version": latest}
 
 _nodes_mem={"nodes":[],"ts":0,"file_ts":0}
 async def _cnodes():
@@ -1567,10 +2568,49 @@ async def _cnodes():
     except:
         return []
 
+async def _fetch_owners(client):
+    """Fetch node_id -> owner wallet and node_id -> custom_http_port from the bonded endpoint.
+    bonded carries the owner wallet AND the node's declared API port; described carries neither."""
+    owners = {}
+    ports = {}
+    econ = {}
+    try:
+        r = await client.get(DEF_REF["bonded_api"] + "?limit=3000", timeout=25)
+        r.raise_for_status()
+        for item in r.json().get("data", []):
+            bi = item.get("bond_information", {}) or {}
+            nid = bi.get("node_id")
+            if nid is None:
+                continue
+            owner = bi.get("owner")
+            if owner:
+                owners[nid] = owner
+            hp = (bi.get("node") or {}).get("custom_http_port")
+            if hp:
+                ports[nid] = hp
+            # Bulk economics for the explorer table (one bonded call covers every node).
+            rd = item.get("rewarding_details") or {}
+            cp = rd.get("cost_params") or {}
+            e = {}
+            try: e["margin"] = round(float(cp.get("profit_margin_percent")), 4)
+            except Exception: e["margin"] = None
+            e["opcost"] = _unym((cp.get("interval_operating_cost") or {}).get("amount"))
+            e["delegations"] = rd.get("unique_delegations")
+            e["pledge"] = _unym((bi.get("original_pledge") or {}).get("amount"))
+            econ[nid] = e
+    except Exception as e:
+        print("[!] Fetch owners: " + str(e))
+    if econ:
+        _bonded_econ.clear()
+        _bonded_econ.update(econ)
+    return owners, ports
+
+
 async def _fnodes():
-    """Fetch fresh node list from Nym described API."""
+    """Fetch fresh node list from Nym described API, enriched with owner from bonded API."""
     nodes = []
     async with httpx.AsyncClient(timeout=30) as c:
+        owners, ports = await _fetch_owners(c)
         try:
             r = await c.get(DEF_REF["nodes_api"], timeout=20)
             r.raise_for_status()
@@ -1592,12 +2632,13 @@ async def _fnodes():
                     _ipv6 = any(":" in str(a) for a in ips)
                     _ipv6_addr = next((str(a) for a in ips if ":" in str(a)), None)
                     _toc = bool(aux.get("accepted_operator_terms_and_conditions", False)) if isinstance(aux, dict) else False
+                    _node_id_val = it.get("node_id", "")
                     nodes.append({
-                        "node_id": it.get("node_id", ""),
+                        "node_id": _node_id_val,
                         "identity_key": hi.get("keys", {}).get("ed25519", "") if isinstance(hi.get("keys"), dict) else "",
                         "ip": ip,
                         "hostname": hi.get("hostname") if isinstance(hi, dict) else None,
-                        "moniker": "Node " + str(it.get("node_id", "")),
+                        "moniker": "Node " + str(_node_id_val),
                         "mode": mode,
                         "location": aux.get("location", "") if isinstance(aux, dict) else "",
                         "version": bi.get("build_version", "") if isinstance(bi, dict) else "",
@@ -1605,6 +2646,8 @@ async def _fnodes():
                         "toc": _toc,
                         "ipv6": _ipv6,
                         "ipv6_addr": _ipv6_addr,
+                        "owner": owners.get(_node_id_val, ""),
+                        "http_port": ports.get(_node_id_val),
                     })
                 except: continue
         except Exception as e:
@@ -1735,6 +2778,33 @@ async def _do_refresh_ipv6_inner():
                     node["ipv6_checked_at"] = now
                     return
 
+            # 2.5) Official Nym probe (Nym monitors test v6 directly). Robust to the PTR->AAAA gap
+            #      that makes the Stockholm agent return no_ipv6_address_found for v6-capable nodes
+            #      whose reverse-DNS hostname has no AAAA (i.e. most of them).
+            idk = node.get("identity_key") or ""
+            if idk:
+                _pe = _nym_probe_cache.get(idk)
+                if _pe:
+                    _o  = (_pe.get("last_probe_result") or {}).get("outcome") or {}
+                    _wg = _o.get("wg") or {}
+                    _ex = _o.get("as_exit") or {}
+                    _ph6 = _wg.get("ping_hosts_performance_v6")
+                    # REAL working v6 only: external-v6 routing OR actual v6 ping traffic.
+                    # can_handshake_v6 alone is NOT enough - it is often True while v6 is dead
+                    # (ping 0.0, no external route). Keying on it is exactly what made us show
+                    # "confirmed" where Harbourmaster (same Nym data) correctly shows no IPv6.
+                    _v6ok = (_ex.get("can_route_ip_external_v6") is True
+                             or (isinstance(_ph6, (int, float)) and _ph6 > 0))
+                    # The probe is Nym's own, fresh (~15 min) and authoritative, so let it decide
+                    # BOTH ways - a stale "confirmed" gets corrected to absent instead of sticking.
+                    node["ipv6"] = bool(_v6ok)
+                    node["ipv6_source"] = "nym-probe"
+                    node["ipv6_status"] = "confirmed" if _v6ok else "absent"
+                    node["ipv6_checked_at"] = now
+                    if not _v6ok:
+                        node.pop("ipv6_addr", None)
+                    return
+
             # 3) Stockholm agent
             async with stk_sem:
                 supported, addr = await ask_stockholm(ip)
@@ -1786,6 +2856,13 @@ async def lifespan(app):
     _bg_tasks.append(asyncio.create_task(_bg_auto_sync()))
     _bg_tasks.append(asyncio.create_task(_bg_daily_ipv6()))
     _bg_tasks.append(asyncio.create_task(_bg_daily_smtp()))
+    _bg_tasks.append(asyncio.create_task(_bg_daily_history_snapshot()))
+    _bg_tasks.append(asyncio.create_task(_bg_monthly_country_metrics_refresh()))
+    _bg_tasks.append(asyncio.create_task(_bg_refresh_nym_probe()))
+    _bg_tasks.append(asyncio.create_task(_bg_refresh_stress()))
+    _bg_tasks.append(asyncio.create_task(_bg_refresh_econ_bulk()))
+    _bg_tasks.append(asyncio.create_task(_bg_analytics_backfill()))
+    _bg_tasks.append(asyncio.create_task(_bg_refresh_dp()))
     yield
     for t in _bg_tasks:
         t.cancel()
@@ -1802,6 +2879,1413 @@ async def _bg_daily_ipv6():
         except Exception as e:
             print(f"[!] Daily IPv6 scan error: {e}")
         await asyncio.sleep(86400)  # 24 hours
+
+# ── History snapshots ────────────────────────────────────────
+# Daily snapshots of per-node state for trend analysis (uptime, version drift, SMTP, IPv6).
+# Reuses already-cached data (no extra probes) so it is cheap to run.
+HISTORY_DB = Path("nym_history.db")
+
+def _init_history_db():
+    import sqlite3
+    conn = sqlite3.connect(str(HISTORY_DB))
+    try:
+        conn.execute("""CREATE TABLE IF NOT EXISTS node_snapshots (
+            snapshot_date TEXT NOT NULL,
+            node_id INTEGER,
+            ip TEXT NOT NULL,
+            mode TEXT,
+            location TEXT,
+            version TEXT,
+            version_status TEXT,
+            wg INTEGER,
+            online INTEGER,
+            smtp_status TEXT,
+            ipv6_supported INTEGER,
+            PRIMARY KEY (snapshot_date, ip)
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ip_date ON node_snapshots(ip, snapshot_date DESC)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _take_history_snapshot():
+    """Insert one row per known node for today's date (overwrite if already exists)."""
+    import sqlite3
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    nodes = _nodes_mem.get("nodes") or []
+    if not nodes:
+        return {"inserted": 0, "date": today, "skipped_reason": "no nodes in cache"}
+    ref = load_ref()
+    latest = ref.get("latest_version")
+    prerel = ref.get("prerelease_version")
+    rows = []
+    for n in nodes:
+        ip = n.get("ip", "") or ""
+        if not ip:
+            continue
+        v = n.get("version", "") or ""
+        vs = "unknown"
+        if v:
+            vsr = _build_version_response(v, latest, prerel) or {}
+            vs = vsr.get("status", "unknown") if isinstance(vsr, dict) else "unknown"
+        smtp_entry = _smtp_cache.get(ip) if _smtp_cache else None
+        smtp_status = (smtp_entry or {}).get("status") if smtp_entry else None
+        # IPv6: prefer verified cache, fall back to nym-api ip_addresses presence in node cache
+        ipv6_entry = _ipv6_cache.get(ip) if _ipv6_cache else None
+        ipv6_ok = 1 if (ipv6_entry or {}).get("status") in ("trusted", "confirmed") else (1 if n.get("ipv6") else 0)
+        rows.append((
+            today,
+            n.get("node_id"),
+            ip,
+            n.get("mode") or "",
+            (n.get("location") or "").upper(),
+            v,
+            vs,
+            1 if n.get("wg") else 0,
+            1,  # online: present in nym-api described list = alive
+            smtp_status,
+            ipv6_ok,
+        ))
+    if not rows:
+        return {"inserted": 0, "date": today, "skipped_reason": "no rows"}
+    conn = sqlite3.connect(str(HISTORY_DB))
+    try:
+        conn.executemany("""INSERT OR REPLACE INTO node_snapshots
+            (snapshot_date, node_id, ip, mode, location, version, version_status, wg, online, smtp_status, ipv6_supported)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", rows)
+        conn.commit()
+    finally:
+        conn.close()
+    return {"inserted": len(rows), "date": today}
+
+
+@app.get("/api/history/{ip}")
+async def node_history(ip: str, days: int = Query(30, ge=1, le=365)):
+    """Return per-day snapshot history for a node (up to N days back)."""
+    import sqlite3
+    from datetime import datetime, timezone, timedelta
+    if not HISTORY_DB.exists():
+        return {"ip": ip, "days": days, "snapshots": []}
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    conn = sqlite3.connect(str(HISTORY_DB))
+    try:
+        cur = conn.execute("""SELECT snapshot_date, mode, location, version, version_status, wg, online, smtp_status, ipv6_supported
+            FROM node_snapshots WHERE ip = ? AND snapshot_date >= ?
+            ORDER BY snapshot_date ASC""", (ip, cutoff))
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    finally:
+        conn.close()
+    return {"ip": ip, "days": days, "snapshots": rows, "count": len(rows)}
+
+
+@app.get("/api/economics/{node_id}")
+async def node_economics(node_id: int):
+    """On-chain economics for a node: saturation, per-epoch + claimable operator reward,
+    owner wallet balance, cost params (margin/operating cost), delegated stake, DP backing."""
+    nodes = await _cnodes()
+    n = next((x for x in nodes if x.get("node_id") == node_id), None)
+    owner = (n or {}).get("owner") or None
+    se = _stress_cache.get(node_id) or {}
+    econ = await _fetch_node_economics(node_id, owner=owner, perf=se.get("performance"))
+    return econ or {"node_id": node_id, "available": False}
+
+
+@app.get("/api/delegations/{node_id}")
+async def node_delegations(node_id: int):
+    """Delegation graph for a node: who delegated, how much, when, their wallet balance,
+    how many nodes they back, and DP/vesting flags."""
+    d = await _fetch_node_delegations(node_id)
+    return d or {"node_id": node_id, "delegations": [], "count": 0}
+
+
+CTX_DB = os.environ.get("NYM_CTX_DB", str(Path(__file__).parent / "nym_contract_txs.db"))
+
+
+@app.get("/api/node-history/{node_id}")
+async def node_history(node_id: int, limit: int = Query(60, ge=1, le=500)):
+    """Delegations/undelegations and bond changes for ONE node, newest first.
+
+    Filled by contract_index.py, which tails new blocks every 2 min and decodes the tx bodies:
+    the chain does NOT index node_id (it lives in the message body, not in an event), so a node's
+    history cannot be tx_searched the way a wallet's can - it has to be parsed and stored.
+    """
+    import sqlite3
+    rows = []
+    try:
+        conn = sqlite3.connect(CTX_DB)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute(
+            "SELECT height, iso, kind, owner, amount, success FROM ctx "
+            "WHERE node_id=? ORDER BY height DESC LIMIT ?", (node_id, limit))
+        rows = [dict(r) for r in cur]
+        conn.close()
+    except Exception:
+        pass
+    return {"node_id": node_id, "events": rows, "count": len(rows)}
+
+
+@app.get("/api/dp")
+async def dp_info():
+    """Nym Delegation Program / team wallet backing summary (nodes + total NYM)."""
+    return {**_dp_meta, "backed_count": len(_dp_backed)}
+
+
+@app.get("/api/wallet/{address}")
+async def wallet_info(address: str):
+    """Explorer view of any Nyx wallet: balance, delegations (with node names), operated
+    nodes, pending operator reward, and categorized tx history (delegate/undelegate/
+    withdraw/send/receive)."""
+    address = (address or "").strip()
+    if not (address.startswith("n1") and 38 <= len(address) <= 70 and address.isalnum()):
+        return JSONResponse({"error": "invalid Nyx address"}, status_code=400)
+    try:
+        return await _fetch_wallet(address)
+    except Exception as e:
+        return {"address": address, "available": False, "error": str(e)[:200]}
+
+
+@app.get("/api/wallet/{address}/txs")
+async def wallet_txs(address: str):
+    """Full tx history for a wallet, indexed from the archive RPC into SQLite (delegate,
+    undelegate, withdraw-reward, send, receive, ...). First view backfills from genesis;
+    later views serve from SQLite instantly and tail for new txs."""
+    address = (address or "").strip()
+    if not (address.startswith("n1") and 38 <= len(address) <= 70 and address.isalnum()):
+        return JSONResponse({"error": "invalid Nyx address"}, status_code=400)
+    try:
+        _txdb_init()
+        st = _tx_index_state(address)
+        if st is None:
+            await _index_wallet(address, full=True)       # first view: full backfill
+        elif (time.time() - st["ts"]) > TX_INDEX_TTL:
+            await _index_wallet(address, full=False)       # stale: quick tail for new txs
+        txs = _read_wallet_txs(address, TX_SERVE_LIMIT)
+        if not txs:
+            # archive unreachable / nothing indexed -> live LCD recent as a safety net
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                txs = await _fetch_wallet_txs(client, address, WALLET_TX_LIMIT)
+        st = _tx_index_state(address) or {}
+        return {"address": address, "txs": txs, "tx_count": len(txs), "total_indexed": st.get("total")}
+    except Exception as e:
+        return {"address": address, "txs": [], "tx_count": 0, "error": str(e)[:200]}
+
+
+@app.get("/api/pending/{address}")
+async def wallet_pending(address: str):
+    """Pending epoch events (delegations/undelegations queued for the NEXT epoch) for an address.
+    In Nym, a delegation is not active until the epoch boundary — this surfaces it in the meantime."""
+    address = (address or "").strip()
+    if not (address.startswith("n1") and 38 <= len(address) <= 70 and address.isalnum()):
+        return JSONResponse({"error": "invalid Nyx address"}, status_code=400)
+    out = {"seconds_until_executable": None, "pending": []}
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            start = None
+            for _ in range(12):  # cap pages (500 each)
+                q = {"get_pending_epoch_events": {"limit": 500}}
+                if start is not None:
+                    q["get_pending_epoch_events"]["start_after"] = start
+                data = await _lcd_smart(client, q)
+                if not isinstance(data, dict):
+                    break
+                if out["seconds_until_executable"] is None:
+                    out["seconds_until_executable"] = data.get("seconds_until_executable")
+                evs = data.get("events") or []
+                for it in evs:
+                    kind = ((it.get("event") or {}).get("kind")) or {}
+                    for k in ("delegate", "undelegate"):
+                        d = kind.get(k)
+                        if isinstance(d, dict) and d.get("owner") == address:
+                            out["pending"].append({
+                                "type": k,
+                                "node_id": d.get("node_id") if d.get("node_id") is not None else d.get("mix_id"),
+                                "amount": _unym((d.get("amount") or {}).get("amount")) if d.get("amount") else None,
+                            })
+                nxt = data.get("start_next_after")
+                if not evs or nxt is None or nxt == start:
+                    break
+                start = nxt
+    except Exception as e:
+        out["error"] = str(e)[:160]
+    return out
+
+
+# ── Nymesis analytics: fetch once from their public API, PERSIST into our own SQLite, serve from
+# ── ours (their API is only a "top-up"). Owns the history so it survives their paused serverless. ──
+NYMESIS_ANALYTICS = os.environ.get("NYMESIS_ANALYTICS_API", "").rstrip("/")
+ANALYTICS_DB = Path("nym_analytics.db")
+ANALYTICS_REFRESH = int(os.environ.get("NYM_ANALYTICS_REFRESH", "43200"))  # top-up a node from their API at most every 12h
+_an_inited = False
+
+def _analytics_db_init():
+    global _an_inited
+    if _an_inited:
+        return
+    import sqlite3
+    conn = sqlite3.connect(str(ANALYTICS_DB), timeout=30)
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS an_series(node_id INTEGER,metric TEXT,date TEXT,a REAL,b REAL,PRIMARY KEY(node_id,metric,date))")
+        conn.execute("CREATE TABLE IF NOT EXISTS an_events(node_id INTEGER,kind TEXT,date TEXT,info TEXT,PRIMARY KEY(node_id,kind,date))")
+        conn.execute("CREATE TABLE IF NOT EXISTS an_meta(node_id INTEGER PRIMARY KEY,uptime INTEGER,ts REAL)")
+        conn.commit()
+    finally:
+        conn.close()
+    _an_inited = True
+
+async def _analytics_fetch(node_id, days=30):
+    """Pull raw history from the Nymesis public API. Returns None if it gives us nothing."""
+    async def g(client, path):
+        try:
+            r = await client.get(f"{NYMESIS_ANALYTICS}/api/v3/nodes/{node_id}/{path}")
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            return None
+        return None
+    async with httpx.AsyncClient(timeout=14.0) as client:
+        profit, perf, rewarded, packets, updates, reboots, uptime = await asyncio.gather(
+            g(client, f"history/profit?days={days}"), g(client, f"history/performance?days={days}"),
+            g(client, f"history/rewarded?days={days}"), g(client, f"history/packets?days={days}"),
+            g(client, "history/updates?days=60"), g(client, "history/reboots?days=30"), g(client, "uptime"))
+    out = {"profit": (profit or {}).get("elements"), "performance": (perf or {}).get("elements"),
+           "rewarded": (rewarded or {}).get("elements"), "packets": (packets or {}).get("elements"),
+           "updates": (updates or {}).get("elements"), "reboots": (reboots or {}).get("elements"),
+           "uptime": (uptime or {}).get("uptime") if isinstance(uptime, dict) else None}
+    return out if (out.get("profit") or out.get("performance")) else None
+
+def _analytics_store(node_id, raw):
+    import sqlite3, time
+    _analytics_db_init()
+    conn = sqlite3.connect(str(ANALYTICS_DB), timeout=30)
+    try:
+        def ups(metric, elements, ka, kb=None):
+            for e in (elements or []):
+                d = e.get("date")
+                if d:
+                    conn.execute("INSERT OR REPLACE INTO an_series(node_id,metric,date,a,b) VALUES(?,?,?,?,?)",
+                                 (node_id, metric, d, e.get(ka), (e.get(kb) if kb else None)))
+        ups("profit", raw.get("profit"), "owner_profit", "node_profit")
+        ups("performance", raw.get("performance"), "performance")
+        ups("rewarded", raw.get("rewarded"), "count", "rate")
+        ups("packets", raw.get("packets"), "ingress", "egress")
+        for u in (raw.get("updates") or []):
+            if u.get("date"):
+                conn.execute("INSERT OR REPLACE INTO an_events(node_id,kind,date,info) VALUES(?,?,?,?)", (node_id, "update", u.get("date"), u.get("build_version")))
+        for rb in (raw.get("reboots") or []):
+            if rb.get("date"):
+                conn.execute("INSERT OR REPLACE INTO an_events(node_id,kind,date,info) VALUES(?,?,?,?)", (node_id, "reboot", rb.get("date"), None))
+        conn.execute("INSERT OR REPLACE INTO an_meta(node_id,uptime,ts) VALUES(?,?,?)", (node_id, raw.get("uptime"), time.time()))
+        conn.commit()
+    finally:
+        conn.close()
+
+def _analytics_read(node_id):
+    import sqlite3
+    _analytics_db_init()
+    conn = sqlite3.connect(str(ANALYTICS_DB), timeout=30)
+    try:
+        def ser(metric, ka, kb=None):
+            rows = conn.execute("SELECT date,a,b FROM an_series WHERE node_id=? AND metric=? ORDER BY date", (node_id, metric)).fetchall()
+            res = []
+            for d, a, b in rows:
+                o = {"date": d, ka: a}
+                if kb: o[kb] = b
+                res.append(o)
+            return res or None
+        out = {"available": False, "source": "stored"}
+        out["profit"] = ser("profit", "owner_profit", "node_profit")
+        out["performance"] = ser("performance", "performance")
+        out["rewarded"] = ser("rewarded", "count", "rate")
+        out["packets"] = ser("packets", "ingress", "egress")
+        ev = conn.execute("SELECT kind,date,info FROM an_events WHERE node_id=? ORDER BY date", (node_id,)).fetchall()
+        out["updates"] = [{"date": d, "build_version": info} for (k, d, info) in ev if k == "update"] or None
+        out["reboots"] = [{"date": d} for (k, d, info) in ev if k == "reboot"] or None
+        m = conn.execute("SELECT uptime,ts FROM an_meta WHERE node_id=?", (node_id,)).fetchone()
+        out["uptime"] = m[0] if m else None
+        out["stored_ts"] = m[1] if m else None
+        if out["profit"] or out["performance"]:
+            out["available"] = True
+        return out
+    finally:
+        conn.close()
+
+def _analytics_ts(node_id):
+    import sqlite3
+    _analytics_db_init()
+    conn = sqlite3.connect(str(ANALYTICS_DB), timeout=30)
+    try:
+        r = conn.execute("SELECT ts FROM an_meta WHERE node_id=?", (node_id,)).fetchone()
+        return r[0] if r else None
+    finally:
+        conn.close()
+
+@app.get("/api/analytics/{node_id}")
+async def node_analytics(node_id: int, days: int = 30):
+    """Serve a node's history from OUR store; top up from the Nymesis public API when stale."""
+    import time
+    ts = _analytics_ts(node_id)
+    if ts is None or (time.time() - ts) > ANALYTICS_REFRESH:
+        try:
+            raw = await _analytics_fetch(node_id, days)
+            if raw:
+                _analytics_store(node_id, raw)
+        except Exception:
+            pass
+    return _analytics_read(node_id)
+
+async def _bg_analytics_backfill():
+    """One-time backfill: pull every bonded node's Nymesis history into our store, so we own it."""
+    await asyncio.sleep(90)
+    try:
+        nodes = await _cnodes()
+        ids = []
+        seen = set()
+        for n in nodes:
+            nid = n.get("node_id")
+            if nid is not None and nid not in seen:
+                seen.add(nid); ids.append(nid)
+        sem = asyncio.Semaphore(int(os.environ.get("NYM_ANALYTICS_BACKFILL_CONC", "6")))
+        done = [0]
+        async def one(nid):
+            async with sem:
+                if _analytics_ts(nid) is not None:
+                    return
+                try:
+                    raw = await _analytics_fetch(nid, 30)
+                    if raw:
+                        _analytics_store(nid, raw); done[0] += 1
+                except Exception:
+                    pass
+        await asyncio.gather(*(one(nid) for nid in ids))
+        print(f"[*] Analytics backfill stored {done[0]} nodes into {ANALYTICS_DB}")
+    except Exception as e:
+        print("[!] analytics backfill: " + str(e))
+
+
+async def _bg_monthly_country_metrics_refresh():
+    """Regenerate country_metrics.json from World Bank API once a month, then hot-reload.
+    Freedom House and RSF data is embedded as snapshot in build_country_data.py, so this
+    refresh only pulls the World Bank fields (population, GDP, internet penetration).
+    """
+    # Initial wait: 5 minutes after startup so other tasks settle
+    await asyncio.sleep(300)
+    while True:
+        try:
+            print("[*] Monthly country metrics refresh starting...")
+            script_path = Path(__file__).parent / "build_country_data.py"
+            out_path = Path(__file__).parent / "country_metrics.json"
+            if not script_path.exists():
+                print(f"[!] build_country_data.py not found at {script_path}")
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    "python3", str(script_path),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+                if proc.returncode == 0 and stdout:
+                    out_path.write_bytes(stdout)
+                    # Hot-reload the overlay in nym_country_data
+                    try:
+                        import importlib, nym_country_data as ncd
+                        importlib.reload(ncd)
+                        print(f"[*] Country metrics refreshed: {len(stdout)} bytes, overlay reloaded")
+                    except Exception as e:
+                        print(f"[!] Country metrics refresh: written but overlay reload failed: {e}")
+                else:
+                    print(f"[!] build_country_data.py failed (rc={proc.returncode}): {stderr.decode()[:300]}")
+        except asyncio.TimeoutError:
+            print("[!] Monthly country metrics refresh timed out")
+        except Exception as e:
+            print(f"[!] Monthly country metrics refresh error: {e}")
+        # Sleep 30 days
+        await asyncio.sleep(86400 * 30)
+
+
+async def _bg_daily_history_snapshot():
+    """Take a daily history snapshot of all known nodes. Reuses cached data, no extra probes."""
+    _init_history_db()
+    await asyncio.sleep(90)  # Let other startup tasks settle, give cache time to populate
+    # Take an initial snapshot once on startup if today's hasn't been taken yet
+    try:
+        await _cnodes()  # ensure cache loaded
+        result = _take_history_snapshot()
+        print(f"[*] History snapshot (startup): {result}")
+    except Exception as e:
+        print(f"[!] History snapshot (startup) error: {e}")
+    while True:
+        # Sleep until just after midnight UTC, then take snapshot
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        next_run = (now + timedelta(days=1)).replace(hour=0, minute=15, second=0, microsecond=0)
+        sleep_sec = max(60, (next_run - now).total_seconds())
+        await asyncio.sleep(sleep_sec)
+        try:
+            await _cnodes()
+            result = _take_history_snapshot()
+            print(f"[*] Daily history snapshot: {result}")
+        except Exception as e:
+            print(f"[!] Daily history snapshot error: {e}")
+
+
+async def _fetch_nym_probe():
+    """Fetch all pages of Nym's gateway functional probe API and update _nym_probe_cache.
+
+    Source: mainnet-node-status-api.nymtech.cc/v2/gateways (the production API behind
+    Harbour Master). Probe runs THROUGH the gateway (handshake, route, download), not just
+    a port check. ~748 gateways, server caps pages at 200, so this pulls ~4 pages.
+    Keyed by gateway identity_key (ed25519). Mixnodes are not in this dataset.
+    """
+    import time
+    new_cache: dict = {}
+    total = 0
+    page = 0
+    page_size = 200  # match the server's hard page cap; requesting more just gets clamped,
+                     # and out-of-range pages repeat the last page rather than returning empty
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        while True:
+            try:
+                url = f"{NYM_PROBE_URL}?size={page_size}&page={page}"
+                r = await client.get(url, headers={"User-Agent": "nym-checker/1.0"})
+                r.raise_for_status()
+                data = r.json()
+                items = data.get("items", []) or []
+                total = data.get("total", total) or 0
+                srv_size = data.get("size") or page_size  # server's actual page size, not a magic constant
+                if not items:
+                    break
+                for it in items:
+                    key = it.get("gateway_identity_key")
+                    if not key:
+                        continue
+                    # Store only the operationally meaningful subset. NOTE: the full /v2/gateways
+                    # endpoint does NOT expose ports_check, and routing_score/config_score are
+                    # deprecated (0 across the whole network), so none of those are kept.
+                    new_cache[key] = {
+                        "last_probe_result": it.get("last_probe_result"),
+                        "last_testrun_utc": it.get("last_testrun_utc"),
+                        "last_updated_utc": it.get("last_updated_utc"),
+                        "performance": it.get("performance"),
+                    }
+                # Authoritative stop: we have everything the server reports. Keys dedupe, so a
+                # repeated out-of-range page can never inflate the count past total.
+                if total and len(new_cache) >= total:
+                    break
+                # Short page (fewer than the server's OWN page size) = last page. Uses the echoed
+                # size, so it stays correct even if Nym later changes the page cap.
+                if len(items) < srv_size:
+                    break
+                page += 1
+                # Page ceiling derived from total, not a hardcoded magic number.
+                max_pages = (total // max(srv_size, 1)) + 3 if total else 50
+                if page > max_pages:
+                    print(f"[!] Nym probe: page {page} exceeds ceiling {max_pages}, stopping")
+                    break
+            except Exception as e:
+                _nym_probe_meta["error"] = f"page {page}: {str(e)[:200]}"
+                raise
+    _nym_probe_cache.clear()
+    _nym_probe_cache.update(new_cache)
+    _nym_probe_meta["last_refresh"] = time.time()
+    _nym_probe_meta["total_gateways"] = len(new_cache)
+    _nym_probe_meta["error"] = None
+    return len(new_cache)
+
+
+async def _bg_refresh_nym_probe():
+    """Background task: refresh Nym functional probe cache every NYM_PROBE_REFRESH_SEC."""
+    # Initial delay so startup is fast
+    await asyncio.sleep(20)
+    while True:
+        try:
+            count = await _fetch_nym_probe()
+            print(f"[*] Nym probe cache refreshed: {count} gateways")
+        except Exception as e:
+            print(f"[!] Nym probe refresh error: {e}")
+        await asyncio.sleep(NYM_PROBE_REFRESH_SEC)
+
+
+def _build_functional_probe_response(identity_key, our_multi_vantage=None):
+    """Return the gateway's last functional probe result from Nym's official API,
+    with cross-validation flags against our own multi-vantage results.
+
+    Returns None if not in cache (mixnodes, or fresh nodes not yet probed).
+    """
+    if not identity_key:
+        return None
+    entry = _nym_probe_cache.get(identity_key)
+    if not entry:
+        return None
+
+    out = (entry.get("last_probe_result") or {}).get("outcome") or {}
+
+    # Compact, frontend-friendly shape.
+    # NOTE: routing_score/config_score are intentionally omitted - the official API reports
+    # them as 0 for the ENTIRE network (deprecated), so surfacing them would falsely imply
+    # every gateway is broken. Use `performance` + the boolean probe dimensions instead.
+    resp = {
+        "available": True,
+        "performance": entry.get("performance"),
+        "last_probed_utc": entry.get("last_testrun_utc"),
+        "as_entry": {
+            "can_connect": (out.get("as_entry") or {}).get("can_connect"),
+            "can_route":   (out.get("as_entry") or {}).get("can_route"),
+        } if out.get("as_entry") else None,
+        "as_exit": {
+            "can_connect":           (out.get("as_exit") or {}).get("can_connect"),
+            "can_route_ip_v4":       (out.get("as_exit") or {}).get("can_route_ip_v4"),
+            "can_route_ip_v6":       (out.get("as_exit") or {}).get("can_route_ip_v6"),
+            "can_route_external_v4": (out.get("as_exit") or {}).get("can_route_ip_external_v4"),
+            "can_route_external_v6": (out.get("as_exit") or {}).get("can_route_ip_external_v6"),
+        } if out.get("as_exit") else None,
+        "lewes_protocol": {
+            "can_connect":   (out.get("lp") or {}).get("can_connect"),
+            "can_handshake": (out.get("lp") or {}).get("can_handshake"),
+            "can_register":  (out.get("lp") or {}).get("can_register"),
+            "error":         (out.get("lp") or {}).get("error"),
+        } if out.get("lp") else None,
+        "socks5": (lambda s: {
+            "can_connect": s.get("can_connect_socks5"),
+            "https_latency_ms": (s.get("https_connectivity") or {}).get("https_latency_ms"),
+            "https_success":    (s.get("https_connectivity") or {}).get("https_success"),
+            "https_endpoint":   (s.get("https_connectivity") or {}).get("endpoint_used"),
+        } if s else None)(out.get("socks5")),
+        "wireguard": (lambda w: {
+            "handshake_v4": w.get("can_handshake_v4"),
+            "handshake_v6": w.get("can_handshake_v6"),
+            "dns_v4":       w.get("can_resolve_dns_v4"),
+            "dns_v6":       w.get("can_resolve_dns_v6"),
+            "register":     w.get("can_register"),
+            "download_v4_bytes": w.get("downloaded_file_size_bytes_v4"),
+            "download_v4_ms":    w.get("download_duration_milliseconds_v4"),
+            "download_v6_bytes": w.get("downloaded_file_size_bytes_v6"),
+            "download_v6_ms":    w.get("download_duration_milliseconds_v6"),
+            "ping_hosts_v4":     w.get("ping_hosts_performance_v4"),
+            "ping_hosts_v6":     w.get("ping_hosts_performance_v6"),
+        } if w else None)(out.get("wg")),
+        "source": {
+            "provider": "Nym Node Status API (official, production)",
+            "url": NYM_PROBE_URL,
+        },
+    }
+
+    # Cross-validation hints: where our inbound multi-vantage and their functional probe disagree
+    if our_multi_vantage:
+        hints = []
+        # If our vantages all see ports as closed but their probe says routing works,
+        # the provider likely whitelists their probe IP but blocks our vantage IPs.
+        all_closed_inbound = all(
+            all(v.get("open") is False for v in port_data.values() if isinstance(v, dict))
+            for port_data in our_multi_vantage.values()
+        ) if our_multi_vantage else False
+        their_routes = (resp.get("as_exit") or {}).get("can_route_external_v4")
+        if all_closed_inbound and their_routes:
+            hints.append({
+                "code": "vantage_blacklist_likely",
+                "message": "Our inbound vantages see ports as closed, but the official probe routes traffic. Provider may whitelist Nym probe IPs.",
+            })
+        if hints:
+            resp["cross_validation"] = hints
+
+    return resp
+
+
+async def _fetch_stress():
+    """Fetch per-node validator annotation scores (stress/routing/config/performance) and
+    update _stress_cache. No bulk endpoint exists, so this iterates node_ids with bounded
+    concurrency (like the IPv6 scan). stress_testing_score is meaningful only for mixnodes;
+    gateways report stress 0 / was_reachable=false by design (still keep routing/config/perf)."""
+    import time
+    nodes = await _cnodes()
+    ids = []
+    seen = set()
+    for n in nodes:
+        nid = n.get("node_id")
+        if nid is None or nid in seen:
+            continue
+        seen.add(nid)
+        ids.append(nid)
+
+    new_cache = {}
+    sem = asyncio.Semaphore(STRESS_CONCURRENCY)
+    now_ts = time.time()
+
+    async def one(nid, client):
+        async with sem:
+            try:
+                r = await client.get(f"{STRESS_ANNOTATION_URL}/{nid}",
+                                     headers={"User-Agent": "nym-checker/1.0"})
+                if r.status_code != 200:
+                    return
+                _ann = (r.json() or {}).get("annotation") or {}
+                dp = _ann.get("detailed_performance") or {}
+            except Exception:
+                return
+            st = dp.get("stress_testing_score") or {}
+            new_cache[nid] = {
+                "stress": st.get("score"),
+                "stress_reachable": st.get("was_reachable"),
+                "routing": (dp.get("routing_score") or {}).get("score"),
+                "config": (dp.get("config_score") or {}).get("score"),
+                "performance": dp.get("performance_score"),
+                "role": _ann.get("current_role"),
+                "last_updated": now_ts,
+            }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        await asyncio.gather(*(one(nid, client) for nid in ids))
+
+    if new_cache:
+        _stress_cache.clear()
+        _stress_cache.update(new_cache)
+        _stress_meta["last_refresh"] = now_ts
+        _stress_meta["total"] = len(new_cache)
+        _stress_meta["error"] = None
+    else:
+        _stress_meta["error"] = "no annotations fetched"
+    return len(new_cache)
+
+
+# ── Hourly stress/performance history (upstream only exposes the current 24h-avg) ─────────────
+STRESS_HIST_DB = Path("nym_stress_history.db")
+STRESS_HIST_RETAIN_DAYS = int(os.environ.get("NYM_STRESS_HIST_RETAIN_DAYS", "8"))
+
+def _stress_hist_init():
+    import sqlite3
+    conn = sqlite3.connect(str(STRESS_HIST_DB))
+    try:
+        conn.execute("""CREATE TABLE IF NOT EXISTS stress_hist(
+            node_id INTEGER, hour TEXT, ts REAL,
+            stress REAL, performance REAL, routing REAL, config REAL, role TEXT,
+            PRIMARY KEY(node_id, hour))""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sh ON stress_hist(node_id, hour DESC)")
+        conn.commit()
+    finally:
+        conn.close()
+
+def _snapshot_stress_history():
+    """Write one row per node for the current UTC hour from the live stress cache."""
+    import sqlite3
+    from datetime import datetime, timezone
+    if not _stress_cache:
+        return 0
+    now = datetime.now(timezone.utc)
+    hour = now.strftime("%Y-%m-%dT%H:00Z")
+    ts = now.timestamp()
+    rows = [(nid, hour, ts, e.get("stress"), e.get("performance"), e.get("routing"),
+             e.get("config"), e.get("role")) for nid, e in _stress_cache.items()]
+    conn = sqlite3.connect(str(STRESS_HIST_DB))
+    try:
+        conn.executemany("""INSERT OR REPLACE INTO stress_hist
+            (node_id, hour, ts, stress, performance, routing, config, role)
+            VALUES(?,?,?,?,?,?,?,?)""", rows)
+        conn.execute("DELETE FROM stress_hist WHERE ts < ?", (ts - STRESS_HIST_RETAIN_DAYS * 86400,))
+        conn.commit()
+    finally:
+        conn.close()
+    return len(rows)
+
+def _read_stress_history(node_id, hours=24):
+    import sqlite3
+    from datetime import datetime, timezone, timedelta
+    if not STRESS_HIST_DB.exists():
+        return []
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).timestamp()
+    conn = sqlite3.connect(str(STRESS_HIST_DB))
+    try:
+        cur = conn.execute("""SELECT hour, stress, performance, routing, config, role
+            FROM stress_hist WHERE node_id=? AND ts>=? ORDER BY hour ASC""", (node_id, cutoff))
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+@app.get("/api/stress-history/{node_id}")
+async def stress_history(node_id: int, hours: int = Query(24, ge=1, le=168)):
+    """Hourly stress/performance history for a node (last N hours) — powers the 24-bar view."""
+    pts = _read_stress_history(node_id, hours)
+    return {"node_id": node_id, "hours": hours, "points": pts, "count": len(pts)}
+
+
+async def _bg_refresh_stress():
+    """Background task: refresh the Nym annotation-score cache every STRESS_REFRESH_SEC,
+    and snapshot the scores into the hourly history once per UTC hour."""
+    from datetime import datetime, timezone
+    await asyncio.sleep(25)  # let the node cache warm first
+    _stress_hist_init()
+    _last_hist_hour = None
+    while True:
+        try:
+            count = await _fetch_stress()
+            print(f"[*] Stress/score cache refreshed: {count} nodes")
+            _h = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00Z")
+            if _h != _last_hist_hour:
+                n = _snapshot_stress_history()
+                _last_hist_hour = _h
+                print(f"[*] Stress history snapshot: {n} nodes @ {_h}")
+        except Exception as e:
+            _stress_meta["error"] = str(e)[:200]
+            print(f"[!] Stress refresh error: {e}")
+        await asyncio.sleep(STRESS_REFRESH_SEC)
+
+
+async def _fetch_econ_bulk():
+    """Background sweep: per-node saturation + total_stake (the SAT/STAKE table columns) via the
+    cheap get_node_stake_saturation contract query. Bounded concurrency, like the annotation sweep."""
+    import time
+    nodes = await _cnodes()
+    ids = []
+    seen = set()
+    for n in nodes:
+        nid = n.get("node_id")
+        if nid is None or nid in seen:
+            continue
+        seen.add(nid); ids.append(nid)
+    new = {}
+    sem = asyncio.Semaphore(ECON_BULK_CONCURRENCY)
+    async with httpx.AsyncClient(timeout=20) as client:
+        sp = await _saturation_point(client)
+        async def one(nid):
+            async with sem:
+                try:
+                    sat, pend = await asyncio.gather(
+                        _lcd_smart(client, {"get_node_stake_saturation": {"node_id": nid}}),
+                        _lcd_smart(client, {"get_pending_node_operator_reward": {"node_id": nid}}),
+                    )
+                except Exception:
+                    return
+                e = {}
+                if isinstance(sat, dict):
+                    try: e["saturation"] = round(float(sat.get("current_saturation")), 4)
+                    except Exception: e["saturation"] = None
+                    try: e["total_stake"] = round(float(sat.get("uncapped_saturation")) * sp, 2) if sp else None
+                    except Exception: e["total_stake"] = None
+                if isinstance(pend, dict):
+                    e["owner_reward"] = _unym((pend.get("amount_earned") or {}).get("amount"))
+                if e.get("saturation") is not None or e.get("total_stake") is not None or e.get("owner_reward") is not None:
+                    new[nid] = e
+        await asyncio.gather(*(one(nid) for nid in ids))
+    if new:
+        _econ_bulk.clear(); _econ_bulk.update(new)
+        _econ_bulk_meta["last_refresh"] = time.time(); _econ_bulk_meta["total"] = len(new); _econ_bulk_meta["error"] = None
+    return len(new)
+
+
+async def _bg_refresh_econ_bulk():
+    await asyncio.sleep(40)  # let the node cache + saturation point warm first
+    while True:
+        try:
+            count = await _fetch_econ_bulk()
+            print(f"[*] Econ-bulk (saturation/stake) refreshed: {count} nodes")
+        except Exception as e:
+            _econ_bulk_meta["error"] = str(e)[:200]
+            print(f"[!] Econ-bulk refresh error: {e}")
+        await asyncio.sleep(ECON_BULK_REFRESH_SEC)
+
+
+def _build_stress_response(node_id):
+    """Return a node's Nym-measured scores (stress/routing/config/performance) from the
+    validator annotation API. Returns None if not cached (fresh nodes render nothing).
+    stress_testing_score is a mixnode metric; for gateways stress_was_reachable is false."""
+    if node_id is None:
+        return None
+    entry = _stress_cache.get(node_id)
+    if not entry:
+        return None
+    return {
+        "available": True,
+        "node_id": node_id,
+        "stress_testing_score": entry.get("stress"),
+        "stress_was_reachable": entry.get("stress_reachable"),
+        "routing_score": entry.get("routing"),
+        "config_score": entry.get("config"),
+        "performance_score": entry.get("performance"),
+        "source": {
+            "provider": "Nym validator annotation API",
+            "url": STRESS_ANNOTATION_URL,
+        },
+    }
+
+
+# ── Economics / delegation graph (on-chain via Nyx LCD) ───────────────────────
+async def _lcd_smart(client, query):
+    """Base64 smart-query the mixnet contract; returns the `data` payload or None."""
+    import base64
+    b = base64.b64encode(json.dumps(query).encode()).decode()
+    url = f"{NYM_LCD}/cosmwasm/wasm/v1/contract/{MIXNET_CONTRACT}/smart/{b}"
+    try:
+        r = await client.get(url, headers={"User-Agent": "nym-checker/1.0"})
+    except Exception:
+        return None
+    if r.status_code != 200:
+        return None
+    return (r.json() or {}).get("data")
+
+
+def _unym(v):
+    """unym string (may carry a fractional tail) -> NYM float, or None."""
+    try:
+        return round(int(str(v).split(".")[0]) / UNYM, 6)
+    except Exception:
+        return None
+
+
+async def _lcd_balance(client, addr):
+    """Liquid unym balance of any address, in NYM, with a short shared cache."""
+    if not addr:
+        return None
+    ent = _bal_cache.get(addr)
+    if ent and (time.time() - ent["ts"]) < BAL_TTL:
+        return ent["balance"]
+    try:
+        r = await client.get(f"{NYM_LCD}/cosmos/bank/v1beta1/balances/{addr}")
+        bal = 0.0
+        if r.status_code == 200:
+            for b in (r.json() or {}).get("balances", []):
+                if b.get("denom") == "unym":
+                    bal = int(b.get("amount", 0)) / UNYM
+        _bal_cache[addr] = {"balance": bal, "ts": time.time()}
+        return bal
+    except Exception:
+        return ent["balance"] if ent else None
+
+
+async def _saturation_point(client):
+    """Network stake-saturation point (NYM), cached RP_TTL. Turns a node's saturation
+    ratio into an absolute total-stake figure."""
+    if _reward_params["saturation_point"] is not None and (time.time() - _reward_params["ts"]) < RP_TTL:
+        return _reward_params["saturation_point"]
+    rp = await _lcd_smart(client, {"get_rewarding_params": {}})
+    if isinstance(rp, dict):
+        iv = rp.get("interval") if isinstance(rp.get("interval"), dict) else rp
+        sp = _unym(iv.get("stake_saturation_point"))
+        if sp:
+            _reward_params["saturation_point"] = sp
+            _reward_params["ts"] = time.time()
+    return _reward_params["saturation_point"]
+
+
+async def _fetch_node_economics(node_id, owner=None, perf=None):
+    """On-chain economics for one node: saturation, this-epoch operator reward,
+    accumulated claimable operator reward, owner wallet balance, cost params, DP
+    backing. The independent contract queries run concurrently. Cached ECON_TTL."""
+    if node_id is None:
+        return None
+    ent = _econ_cache.get(node_id)
+    if ent and (time.time() - ent["ts"]) < ECON_TTL:
+        return ent
+    try:
+        perf_s = f"{float(perf):.4f}" if perf else "1.0"
+    except Exception:
+        perf_s = "1.0"
+    out = {"node_id": node_id, "available": True, "ts": time.time()}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        sat, pend, est, rd, bal, sp = await asyncio.gather(
+            _lcd_smart(client, {"get_node_stake_saturation": {"node_id": node_id}}),
+            _lcd_smart(client, {"get_pending_node_operator_reward": {"node_id": node_id}}),
+            _lcd_smart(client, {"get_estimated_current_epoch_operator_reward":
+                                {"node_id": node_id, "estimated_performance": perf_s}}),
+            _lcd_smart(client, {"get_node_rewarding_details": {"node_id": node_id}}),
+            _lcd_balance(client, owner),
+            _saturation_point(client),
+        )
+    if isinstance(sat, dict):
+        try: out["saturation"] = round(float(sat.get("current_saturation")), 4)
+        except Exception: out["saturation"] = None
+        try: out["saturation_uncapped"] = round(float(sat.get("uncapped_saturation")), 4)
+        except Exception: pass
+    if isinstance(pend, dict):
+        out["operator_reward_claimable"] = _unym((pend.get("amount_earned") or {}).get("amount"))
+        out["pledge"] = _unym((pend.get("amount_staked") or {}).get("amount"))
+        out["fully_bonded"] = pend.get("node_still_fully_bonded")
+    if isinstance(est, dict):
+        out["reward_per_epoch"] = _unym((est.get("estimation") or {}).get("amount"))
+        out["stake_value"] = _unym((est.get("current_stake_value") or {}).get("amount"))
+    if isinstance(rd, dict):
+        rw = rd.get("rewarding_details") or rd
+        cp = rw.get("cost_params") or {}
+        try: out["profit_margin"] = round(float(cp.get("profit_margin_percent")), 4)
+        except Exception: pass
+        out["operating_cost"] = _unym((cp.get("interval_operating_cost") or {}).get("amount"))
+        out["unique_delegations"] = rw.get("unique_delegations")
+    if owner:
+        out["owner"] = owner
+        out["owner_balance"] = bal
+    if out.get("saturation_uncapped") is not None and sp:
+        out["total_stake"] = round(out["saturation_uncapped"] * sp, 6)
+    out["dp_backed"] = _dp_backed.get(node_id)
+    # typical per-epoch reward: remember the last non-zero estimate (when the node was in the set)
+    _rpe = out.get("reward_per_epoch")
+    if _rpe and _rpe > 0 and _reward_typical.get(node_id) != _rpe:
+        _reward_typical[node_id] = _rpe
+        _save_reward_typical()
+    out["reward_per_epoch_typical"] = _reward_typical.get(node_id)
+    _econ_cache[node_id] = out
+    return out
+
+
+async def _fetch_node_delegations(node_id):
+    """Full delegator list for one node, each enriched with wallet balance, portfolio
+    size (how many nodes they back) and flags (dp / vesting). Cached DELEG_TTL.
+    Per-delegator lookups run under a bounded semaphore (ECON_CONCURRENCY)."""
+    if node_id is None:
+        return None
+    ent = _deleg_cache.get(node_id)
+    if ent and (time.time() - ent["ts"]) < DELEG_TTL:
+        return ent
+    out = {"node_id": node_id, "ts": time.time(), "delegations": [], "count": 0}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        d = await _lcd_smart(client, {"get_node_delegations": {"node_id": node_id}})
+        rows = (d or {}).get("delegations", []) if isinstance(d, dict) else (d or [])
+        sem = asyncio.Semaphore(ECON_CONCURRENCY)
+
+        async def enrich(x):
+            addr = x.get("owner")
+            rec = {"address": addr,
+                   "amount": _unym((x.get("amount") or {}).get("amount")),
+                   "height": x.get("height"),
+                   "vesting": bool(x.get("proxy")),
+                   "is_dp": addr == NYM_DP_WALLET}
+            async with sem:
+                bal, port = await asyncio.gather(
+                    _lcd_balance(client, addr),
+                    _lcd_smart(client, {"get_delegator_delegations": {"delegator": addr, "limit": 200}}),
+                )
+            rec["balance"] = bal
+            pl = (port or {}).get("delegations", []) if isinstance(port, dict) else (port or [])
+            rec["portfolio_nodes"] = len(pl)
+            rec["portfolio_capped"] = len(pl) >= 200
+            if rec["is_dp"] and _dp_meta.get("nodes"):
+                rec["portfolio_nodes"] = _dp_meta["nodes"]
+                rec["portfolio_capped"] = False
+            return rec
+
+        recs = list(await asyncio.gather(*(enrich(x) for x in rows)))
+    recs.sort(key=lambda r: (r.get("amount") or 0), reverse=True)
+    out["delegations"] = recs
+    out["count"] = len(recs)
+    out["total_delegated"] = round(sum(r.get("amount") or 0 for r in recs), 6)
+    _deleg_cache[node_id] = out
+    return out
+
+
+async def _fetch_dp_backed():
+    """Paginate the Nym DP/team wallet's delegation portfolio -> {node_id: NYM} so every
+    node can be flagged DP-backed. One wallet, cheap; refreshed hourly."""
+    backed = {}
+    total = 0.0
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        after = None
+        for _ in range(30):
+            q = {"get_delegator_delegations": {"delegator": NYM_DP_WALLET, "limit": 200}}
+            if after:
+                q["get_delegator_delegations"]["start_after"] = after
+            d = await _lcd_smart(client, q)
+            if not isinstance(d, dict):
+                break
+            rows = d.get("delegations", [])
+            for x in rows:
+                nid = x.get("node_id")
+                if nid is not None:
+                    amt = _unym((x.get("amount") or {}).get("amount")) or 0
+                    backed[nid] = amt
+                    total += amt
+            after = d.get("start_next_after")
+            if not after or not rows:
+                break
+    if backed:
+        _dp_backed.clear()
+        _dp_backed.update(backed)
+        _dp_meta["last_refresh"] = time.time()
+        _dp_meta["nodes"] = len(backed)
+        _dp_meta["total_nym"] = round(total, 6)
+    return len(backed)
+
+
+async def _bg_refresh_dp():
+    """Background task: refresh the DP-backing map every DP_REFRESH_SEC."""
+    await asyncio.sleep(35)  # let the node cache warm first
+    while True:
+        try:
+            n = await _fetch_dp_backed()
+            print(f"[*] DP-backing map refreshed: {n} nodes, {_dp_meta['total_nym']:.0f} NYM")
+        except Exception as e:
+            print(f"[!] DP refresh error: {e}")
+        await asyncio.sleep(DP_REFRESH_SEC)
+
+
+# ── Wallet explorer (balance + delegations + rewards + categorized tx history) ─
+def _sum_coins(coins):
+    """Sum the unym amount across a coins array -> NYM float, or None."""
+    t = 0
+    for c in coins or []:
+        if isinstance(c, dict) and c.get("denom") == "unym":
+            try: t += int(c.get("amount", 0))
+            except Exception: pass
+    return round(t / UNYM, 6) if t else None
+
+
+def _tx_received_unym(tr, address):
+    """Sum unym transferred TO `address` in a tx (undelegate/withdraw payouts) from events."""
+    total = 0
+    def scan(events):
+        nonlocal total
+        for ev in events or []:
+            if ev.get("type") != "transfer":
+                continue
+            cur = None
+            for a in ev.get("attributes") or []:
+                k, v = a.get("key"), a.get("value")
+                if k == "recipient":
+                    cur = v
+                elif k == "amount" and cur == address and v:
+                    for part in str(v).split(","):
+                        part = part.strip()
+                        if part.endswith("unym"):
+                            try: total += int(part[:-4])
+                            except Exception: pass
+    scan(tr.get("events"))
+    for lg in tr.get("logs") or []:
+        scan(lg.get("events"))
+    return round(total / UNYM, 6) if total else None
+
+
+def _parse_tx(tr, address):
+    """Classify one tx_response for `address` into delegate/undelegate/withdraw/send/…"""
+    msgs = ((tr.get("tx") or {}).get("body") or {}).get("messages", []) or []
+    m = msgs[0] if msgs else {}
+    ty = m.get("@type", "")
+    typ, node_id, amount, cp = "other", None, None, None
+    if "MsgExecuteContract" in ty:
+        mm = m.get("msg") if isinstance(m.get("msg"), dict) else {}
+        key = next(iter(mm.keys()), "") if mm else ""
+        inner = mm.get(key) if isinstance(mm.get(key), dict) else {}
+        node_id = inner.get("node_id") or inner.get("mix_id")
+        funds = m.get("funds") or []
+        if key == "delegate":
+            typ, amount = "delegate", _sum_coins(funds)
+        elif key == "undelegate":
+            typ, amount = "undelegate", _tx_received_unym(tr, address)
+        elif "withdraw" in key:
+            typ, amount = "withdraw_reward", _tx_received_unym(tr, address)
+        elif key.startswith("bond"):
+            typ, amount = "bond", _sum_coins(funds)
+        elif key.startswith("unbond"):
+            typ, amount = "unbond", _tx_received_unym(tr, address)
+        elif key.startswith("update_"):
+            typ = "config"
+        elif key.startswith("migrate"):
+            typ = "migrate"
+        else:
+            typ = key or "exec"
+    elif ty.endswith("MsgSend"):
+        amount = _sum_coins(m.get("amount") or [])
+        if m.get("from_address") == address:
+            typ, cp = "send", m.get("to_address")
+        else:
+            typ, cp = "receive", m.get("from_address")
+    elif "MsgWithdrawDelegatorReward" in ty or "MsgWithdrawValidatorCommission" in ty:
+        typ, amount = "staking_reward", _tx_received_unym(tr, address)
+    elif "MsgDelegate" in ty:
+        typ, amount = "stake_delegate", _sum_coins([m.get("amount")] if m.get("amount") else [])
+    else:
+        typ = ty.split(".")[-1] or "other"
+    return {"hash": tr.get("txhash"), "height": int(tr.get("height", 0) or 0),
+            "time": tr.get("timestamp"), "type": typ, "node_id": node_id,
+            "amount": amount, "counterparty": cp, "success": (int(tr.get("code", 0) or 0) == 0)}
+
+
+async def _fetch_wallet_txs(client, address, limit):
+    """Recent txs where `address` is sender OR recipient, de-duped and classified."""
+    seen, rows = set(), []
+    async def q(query):
+        try:
+            r = await client.get(f"{NYM_LCD}/cosmos/tx/v1beta1/txs",
+                                 params={"query": query, "order_by": "ORDER_BY_DESC",
+                                         "pagination.limit": str(limit)})
+            if r.status_code != 200:
+                return []
+            return (r.json() or {}).get("tx_responses", []) or []
+        except Exception:
+            return []
+    out_tx, in_tx = await asyncio.gather(
+        q(f"message.sender='{address}'"),
+        q(f"transfer.recipient='{address}'"),
+    )
+    for tr in list(out_tx) + list(in_tx):
+        h = tr.get("txhash")
+        if not h or h in seen:
+            continue
+        seen.add(h)
+        try:
+            rows.append(_parse_tx(tr, address))
+        except Exception:
+            continue
+    rows.sort(key=lambda t: t.get("height", 0), reverse=True)
+    return rows[:limit]
+
+
+# ── Full tx-history indexer (archive RPC → SQLite) ────────────────────────────
+def _height_to_time(height):
+    """Approx UTC ISO timestamp for a block height via piecewise-linear interpolation
+    over the measured anchors (archive RPC tx_search carries height but no block time)."""
+    from datetime import datetime, timezone
+    a = _HEIGHT_ANCHORS
+    if not a or not height:
+        return None
+    if height <= a[0][0]:
+        (h0, t0), (h1, t1) = a[0], a[1]
+    elif height >= a[-1][0]:
+        (h0, t0), (h1, t1) = a[-2], a[-1]
+    else:
+        h0 = None
+        for i in range(1, len(a)):
+            if height <= a[i][0]:
+                (h0, t0), (h1, t1) = a[i - 1], a[i]
+                break
+        if h0 is None:
+            return None
+    if h1 == h0:
+        return None
+    ep = t0 + (height - h0) * (t1 - t0) / (h1 - h0)
+    return datetime.fromtimestamp(ep, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _amt_unym(s):
+    """Leading-integer part of a '123unym' coin string -> NYM float, or None."""
+    try:
+        num = ""
+        for ch in str(s):
+            if ch.isdigit():
+                num += ch
+            else:
+                break
+        return round(int(num) / UNYM, 6) if num else None
+    except Exception:
+        return None
+
+
+async def _rpc_tx_search(client, query, page, per_page=100):
+    """Tendermint /tx_search on the archive node (paginates properly, unlike the LCD)."""
+    import urllib.parse
+    url = (NYM_RPC_ARCHIVE + "/tx_search?query=" + urllib.parse.quote('"' + query + '"')
+           + f"&per_page={per_page}&page={page}&order_by=" + urllib.parse.quote('"desc"'))
+    try:
+        r = await client.get(url, timeout=25)
+        if r.status_code != 200:
+            return None
+        return (r.json() or {}).get("result") or {}
+    except Exception:
+        return None
+
+
+def _parse_rpc_tx(t, address):
+    """Classify an archive-RPC tx from its events: the wasm-* event names the action, the
+    transfer event carrying a msg_index gives the amount/direction."""
+    tr = t.get("tx_result") or {}
+    success = 1 if tr.get("code", 0) in (0, None) else 0
+    action = None; wasm = []; nid = None; amt = None; to = None; frm = None
+    for e in (tr.get("events") or []):
+        ty = e.get("type", "")
+        attrs = {a.get("key"): a.get("value") for a in (e.get("attributes") or [])}
+        if ty == "message" and attrs.get("action"):
+            action = attrs["action"].split(".")[-1]
+        if ty.startswith("wasm"):
+            wasm.append(ty)
+            for k, v in attrs.items():
+                if "node_id" in k and nid is None:
+                    try: nid = int(v)
+                    except Exception: pass
+        if ty == "transfer" and attrs.get("msg_index") is not None:
+            amt = _amt_unym(attrs.get("amount")); to = attrs.get("recipient"); frm = attrs.get("sender")
+    wj = " ".join(wasm)
+    typ = "other"; direction = None; amount = None; cp = None
+    if "pending_delegation" in wj:
+        typ, direction, amount, cp = "delegate", "out", amt, "contract"
+    elif "pending_undelegation" in wj:
+        typ, direction, amount = "undelegate", "in", amt
+    elif "withdraw_operator_reward" in wj or "withdraw_delegator_reward" in wj:
+        typ, direction, amount = "withdraw_reward", "in", amt
+    elif "cost_params_update" in wj:
+        typ = "cost_update"
+    elif "family" in wj:
+        typ = "family"
+    elif "bond" in wj:
+        typ, amount = "bond", amt
+    elif action == "MsgSend":
+        if to == address:
+            typ, direction, amount, cp = "receive", "in", amt, frm
+        else:
+            typ, direction, amount, cp = "send", "out", amt, to
+    elif action == "MsgWithdrawDelegatorReward":
+        typ, direction, amount = "staking_reward", "in", amt
+    try: h = int(t.get("height"))
+    except Exception: h = 0
+    return {"hash": t.get("hash"), "height": h, "type": typ, "node_id": nid,
+            "amount": amount, "counterparty": cp, "direction": direction, "success": success}
+
+
+def _txdb_init():
+    import sqlite3
+    conn = sqlite3.connect(str(TXDB))
+    try:
+        conn.execute("""CREATE TABLE IF NOT EXISTS wallet_txs(
+            address TEXT, hash TEXT, height INTEGER, time TEXT, type TEXT, node_id INTEGER,
+            amount REAL, counterparty TEXT, direction TEXT, success INTEGER,
+            PRIMARY KEY(address, hash))""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_wtx ON wallet_txs(address, height DESC)")
+        conn.execute("CREATE TABLE IF NOT EXISTS tx_index_state(address TEXT PRIMARY KEY, ts REAL, total INTEGER)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def _index_wallet(address, full=True):
+    """Backfill (full) or tail (page 1 only) a wallet's tx history from the archive RPC into
+    SQLite. Indexes both directions (message.sender + transfer.recipient), deduped by hash."""
+    rows = {}
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        for q in (f"message.sender='{address}'", f"transfer.recipient='{address}'"):
+            page = 1
+            while page <= TX_INDEX_MAX_PAGES:
+                res = await _rpc_tx_search(client, q, page)
+                if not res:
+                    break
+                txs = res.get("txs") or []
+                for t in txs:
+                    r = _parse_rpc_tx(t, address)
+                    if r.get("hash"):
+                        rows[r["hash"]] = r
+                total = int(res.get("total_count") or 0)
+                if not full or not txs or page * 100 >= total:
+                    break
+                page += 1
+    for r in rows.values():
+        r["time"] = _height_to_time(r["height"])
+    import sqlite3
+    conn = sqlite3.connect(str(TXDB))
+    try:
+        conn.executemany("""INSERT OR REPLACE INTO wallet_txs
+            (address, hash, height, time, type, node_id, amount, counterparty, direction, success)
+            VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            [(address, r["hash"], r["height"], r.get("time"), r["type"], r["node_id"],
+              r["amount"], r["counterparty"], r["direction"], r["success"]) for r in rows.values()])
+        tot = conn.execute("SELECT COUNT(*) FROM wallet_txs WHERE address=?", (address,)).fetchone()[0]
+        conn.execute("INSERT OR REPLACE INTO tx_index_state(address, ts, total) VALUES(?,?,?)",
+                     (address, time.time(), tot))
+        conn.commit()
+    finally:
+        conn.close()
+    return len(rows)
+
+
+def _read_wallet_txs(address, limit):
+    import sqlite3
+    conn = sqlite3.connect(str(TXDB))
+    try:
+        cur = conn.execute("""SELECT hash, height, time, type, node_id, amount, counterparty, direction, success
+            FROM wallet_txs WHERE address=? ORDER BY height DESC LIMIT ?""", (address, limit))
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def _tx_index_state(address):
+    import sqlite3
+    if not TXDB.exists():
+        return None
+    conn = sqlite3.connect(str(TXDB))
+    try:
+        r = conn.execute("SELECT ts, total FROM tx_index_state WHERE address=?", (address,)).fetchone()
+        return {"ts": r[0], "total": r[1]} if r else None
+    finally:
+        conn.close()
+
+
+async def _fetch_wallet(address):
+    """Full wallet view: balance, delegations (with node monikers), operated nodes,
+    pending operator reward, and categorized tx history. Cached WALLET_TTL."""
+    ent = _wallet_cache.get(address)
+    if ent and (time.time() - ent["ts"]) < WALLET_TTL:
+        return ent
+    out = {"address": address, "available": True, "ts": time.time(),
+           "is_dp": address == NYM_DP_WALLET}
+    nodes = await _cnodes()
+    by_id = {n.get("node_id"): n for n in nodes}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        bal_task = _lcd_balance(client, address)
+        # delegations by this wallet (paged)
+        dels, after = [], None
+        for _ in range(10):
+            qd = {"get_delegator_delegations": {"delegator": address, "limit": 200}}
+            if after:
+                qd["get_delegator_delegations"]["start_after"] = after
+            d = await _lcd_smart(client, qd)
+            if not isinstance(d, dict):
+                break
+            page = d.get("delegations", [])
+            dels.extend(page)
+            after = d.get("start_next_after")
+            if not after or not page:
+                break
+        out["balance"] = await bal_task
+        out["txs"] = None  # tx history is loaded lazily via /api/wallet/{addr}/txs
+        # enrich delegations with node moniker/ip
+        deleg, tot = [], 0.0
+        for x in dels:
+            nid = x.get("node_id")
+            amt = _unym((x.get("amount") or {}).get("amount")) or 0
+            tot += amt
+            n = by_id.get(nid) or {}
+            deleg.append({"node_id": nid, "amount": amt, "moniker": n.get("moniker"),
+                          "ip": n.get("ip"), "vesting": bool(x.get("proxy"))})
+        deleg.sort(key=lambda r: r["amount"], reverse=True)
+        out["delegations"] = deleg
+        out["delegations_count"] = len(deleg)
+        out["delegations_total"] = round(tot, 6)
+        # per-delegation pending delegator reward (capped so big wallets stay cheap)
+        if deleg and len(deleg) <= WALLET_REWARD_MAX:
+            _sem = asyncio.Semaphore(ECON_CONCURRENCY)
+            async def _drew(nid):
+                async with _sem:
+                    pr = await _lcd_smart(client, {"get_pending_delegator_reward": {"address": address, "node_id": nid}})
+                return _unym((pr.get("amount_earned") or {}).get("amount")) if isinstance(pr, dict) else None
+            drews = await asyncio.gather(*[_drew(d["node_id"]) for d in deleg])
+            dg_pend = 0.0
+            for d, r in zip(deleg, drews):
+                d["reward"] = r
+                dg_pend += r or 0
+            out["pending_delegator_reward"] = round(dg_pend, 6)
+        else:
+            out["pending_delegator_reward"] = None  # too many delegations to price each row
+        # nodes this wallet OWNS (operator), each with its pending operator reward
+        owned = [{"node_id": n.get("node_id"), "moniker": n.get("moniker"), "ip": n.get("ip"),
+                  "mode": n.get("mode")} for n in nodes if n.get("owner") == address]
+        out["operator_of"] = owned
+        op_pend = 0.0
+        if owned:
+            prs = await asyncio.gather(*[
+                _lcd_smart(client, {"get_pending_node_operator_reward": {"node_id": o["node_id"]}})
+                for o in owned])
+            for o, pr in zip(owned, prs):
+                r = _unym((pr.get("amount_earned") or {}).get("amount")) if isinstance(pr, dict) else None
+                o["reward"] = r
+                op_pend += r or 0
+        out["pending_operator_reward"] = round(op_pend, 6)
+        # combined pending reward across both roles — the top-line figure
+        if out.get("pending_delegator_reward") is None:
+            out["pending_reward_total"] = None
+            out["rewards_partial"] = True
+        else:
+            out["pending_reward_total"] = round((out.get("pending_operator_reward") or 0) + (out.get("pending_delegator_reward") or 0), 6)
+    _wallet_cache[address] = out
+    return out
+
 
 async def _bg_daily_smtp():
     """Run SMTP egress probe once a day. Offset from IPv6 scan by ~6h."""
@@ -1925,4 +4409,4 @@ if __name__=="__main__":
     import uvicorn
     if not REF_FILE.exists():save_ref(DEF_REF);print("[*] Created "+str(REF_FILE))
     print("[*] Nym Checker -> http://0.0.0.0:8000")
-    uvicorn.run(app,host="0.0.0.0",port=8000)
+    uvicorn.run(app,host="127.0.0.1",port=8000)

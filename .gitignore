@@ -33,3 +33,10 @@ Thumbs.db
 # Old one-off migration scripts (kept in git history if ever committed, but not required)
 # add_exit_policy.py
 # fix_exit_policy*.py
+
+# Runtime databases and computed caches (written by the running service)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+nym_reward_typical.json

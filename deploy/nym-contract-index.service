@@ -1,0 +1,6 @@
+[Unit]
+Description=Index mixnet-contract actions (delegations/undelegations per node and wallet)
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/nym-checker/contract_index.py

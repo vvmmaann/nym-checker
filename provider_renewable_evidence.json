@@ -1,0 +1,407 @@
+{
+  "_meta": {
+    "schema_version": "2.0",
+    "verified_at": "2026-05-14",
+    "verifier": "manual fetch of official provider pages, downloaded vendor PDFs where available, fallback to web search for inaccessible sources",
+    "changes_from_v1": [
+      "Per-DC tier model: datacenters[] block for providers with heterogeneous coverage",
+      "verification_confidence field: high/medium/low/unverified",
+      "OVH upgraded Tier 5 -> Tier 3 after fetching their FY25 KPIs PDF (third-party APAVE audit, 100% REF across all 9 owned DCs, ISO/IEC 30134 standards)",
+      "HostHatch and WorkTitans marked verification_confidence: unverified (SPA/lander, cannot confirm absence of claims)",
+      "xneelo flagged not_in_provider_dataset (relevant to user's JHB node but not in nym_provider_data.py)",
+      "netcup Vienna DC and hosttech RZO Gais flagged with per-DC Tier 2 (on-site own generation) on top of provider-level Tier 3",
+      "Contabo Hub Europe flagged with per-DC Tier 2 candidate (PV on-site, unconfirmed)"
+    ],
+    "tier_system": {
+      "1": "PPA with named project, 24/7 matched",
+      "2": "On-site renewable generation (PV, hydro, etc.)",
+      "3": "Matched RECs / Guarantees of Origin (region + time)",
+      "4": "Unbundled RECs (region mismatch acceptable)",
+      "5": "Self-declared, not third-party audited",
+      "6": "No public renewable energy disclosure found"
+    },
+    "verification_method_notes": {
+      "direct_fetch": "Fetched official provider page, extracted exact quotes",
+      "direct_pdf": "Downloaded and parsed vendor PDF (e.g. KPI sheets)",
+      "search_aggregated": "Used web search; quotes from official sources only when verifiable",
+      "blocked_403": "Provider blocks automated fetching; partial verification via search results",
+      "spa_no_static_content": "Provider page is JavaScript SPA, no static HTML to scrape",
+      "no_page_found": "No sustainability/about/environmental URL found",
+      "inferred": "Derived from parent entity classification"
+    },
+    "confidence_levels": {
+      "high": "Direct fetch from primary source AND/OR independently audited",
+      "medium": "Direct fetch from primary source, no third-party audit",
+      "low": "Search-aggregated, primary source could not be directly verified",
+      "unverified": "Could not be verified (SPA, blocked, no page found)"
+    }
+  },
+  "providers": {
+    "Hetzner": {
+      "tier": 3,
+      "tier_label": "matched Guarantees of Origin",
+      "verification_confidence": "high",
+      "claim_summary": "100% green electricity via Guarantees of Origin certificates from naturenergie (2023-2025) and Vattenfall EPD Hydro (2025-2026). Hydropower since 2008 (Germany) / 2018 (Finland). EMAS-audited German locations.",
+      "datacenters": [
+        {"location": "Falkenstein, DE", "tier": 3, "evidence": "EMAS-audited, naturenergie GoO 2023-2025"},
+        {"location": "Nuremberg, DE", "tier": 3, "evidence": "EMAS-audited, naturenergie GoO 2023-2025"},
+        {"location": "Helsinki, FI", "tier": 3, "evidence": "Vattenfall EPD Hydro 2025-2026, hydropower since 2018"}
+      ],
+      "specifics": {
+        "year_started": 2008,
+        "third_party_certs": ["naturenergie hydropower certificate (2023-2025)", "Vattenfall EPD Hydro certificate (2025-2026)", "EMAS (German locations)"]
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.hetzner.com/unternehmen/nachhaltigkeit",
+      "verified_at": "2026-05-14",
+      "caveats": ["Acknowledges 'not yet completely climate neutral'"]
+    },
+    "Hetzner Cloud": {
+      "tier": 3,
+      "tier_label": "matched Guarantees of Origin (EU only)",
+      "verification_confidence": "medium",
+      "claim_summary": "Inherits Hetzner main classification for German/Finnish DCs. Cloud uses additional colocated facilities in Hillsboro OR, Ashburn VA, Singapore which are NOT covered by Hetzner's renewable procurement.",
+      "datacenters": [
+        {"location": "Falkenstein/Nuremberg, DE", "tier": 3, "evidence": "inherits Hetzner"},
+        {"location": "Helsinki, FI", "tier": 3, "evidence": "inherits Hetzner"},
+        {"location": "Hillsboro, OR, US", "tier": 6, "evidence": "colocated, no Hetzner renewable procurement"},
+        {"location": "Ashburn, VA, US", "tier": 6, "evidence": "colocated, no Hetzner renewable procurement"},
+        {"location": "Singapore", "tier": 6, "evidence": "colocated, no Hetzner renewable procurement"}
+      ],
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.hetzner.com/cloud",
+      "verified_at": "2026-05-14"
+    },
+    "HZ-EU": {
+      "tier": 3,
+      "tier_label": "matched Guarantees of Origin (EU only)",
+      "verification_confidence": "low",
+      "claim_summary": "ASN label, presumed Hetzner EU IP block. Inherits Hetzner classification for EU datacenters.",
+      "verification_method": "inferred",
+      "source_url": "https://www.hetzner.com/unternehmen/nachhaltigkeit",
+      "verified_at": "2026-05-14",
+      "caveats": ["Not a separate entity, inferred from naming"]
+    },
+    "Akamai (Linode)": {
+      "tier": 3,
+      "tier_label": "VPPAs + RECs, emissions-first procurement, 95% colocation aligned",
+      "verification_confidence": "medium",
+      "claim_summary": "Targets 100% renewable for Akamai Connected Cloud. December 2024: ~95% of network deployments are in colocation facilities licensed/leased from partners with strong renewable alignment. 11.8% increase in renewable power used 2024 over 2023. Uses Locational Marginal Emissions (LMEs) tracking via REsurety (emissions-first approach). VPPA 2.0s through Net Zero Consortium for Buyers. Direct akamai.com PDF blocked at edge but sustainability microsite on Linode hosting is accessible.",
+      "specifics": {
+        "renewable_pct_2022": 64,
+        "colocation_aligned_pct_2024": 95,
+        "growth_2024_vs_2023_pct": 11.8,
+        "active_clean_energy_projects": 5,
+        "named_projects": ["Azure Sky wind (VPPA 2.0)", "Prairie Solar IL (44.8MW share, ~100,177 MWh/yr, online Q1 2026, prevents ~77,000 tCO2e/yr)", "EU 50MW project operational Jan 2026", "33MW project July 2026"],
+        "procurement_type": "VPPA 2.0 through Net Zero Consortium for Buyers + REC + LME tracking",
+        "methodology_tracking": "Locational Marginal Emissions (LMEs) via REsurety partnership"
+      },
+      "verification_method": "direct_fetch (sustainability microsite) + search_aggregated (main report blocked 403)",
+      "source_url": "https://www.akamaisustainability.com/renewable/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Headline % across full network not published as single number", "100% commitment is target; 95% colocation aligned is the closest verified coverage figure (Dec 2024)", "Procurement is genuinely sophisticated (LME tracking is rare) but headline % opaque"]
+    },
+    "hosttech": {
+      "tier": 3,
+      "tier_label": "matched Naturstrom certificates + on-site PV at one DC",
+      "verification_confidence": "high",
+      "claim_summary": "100% certified Naturstrom across Swiss DCs. RZO Gais facility has PV-covered entire building (Tier 2 for that DC). DATAPARK reuses waste heat for office heating. PUE 1.15 at Nottwil DC. Tier 4 datacenter infrastructure rating.",
+      "datacenters": [
+        {"location": "RZO Gais, CH", "tier": 2, "evidence": "building fully clad in PV (on-site generation)"},
+        {"location": "Nottwil, CH", "tier": 3, "evidence": "100% certified Naturstrom + DATAPARK heat reuse, PUE 1.15"},
+        {"location": "other Swiss DCs", "tier": 3, "evidence": "100% certified Naturstrom"}
+      ],
+      "specifics": {
+        "pue": 1.15,
+        "pv_coverage": "RZO Gais building fully clad in PV",
+        "heat_reuse": "DATAPARK heats offices and adjacent buildings"
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.hosttech.ch/unternehmen/infrastruktur/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Switzerland grid is already hydro-heavy regardless of provider procurement"]
+    },
+    "Contabo": {
+      "tier": 3,
+      "tier_label": "certified green power + Climate Neutral DC Pact member",
+      "verification_confidence": "medium",
+      "claim_summary": "Procures certified green power (wind, hydro, solar mix as of 2023). Hub Europe DC: 100% Green Energy, PUE design 1.168. Member of Climate Neutral Data Centre Pact. PV on-site at Hub Europe (300+ kWp mentioned in third-party source; not confirmed on official blog) - Tier 2 candidate for that DC.",
+      "datacenters": [
+        {"location": "Hub Europe (EU)", "tier": 2, "evidence": "100% Green Energy + PUE 1.168 + on-site PV 300+kWp (third-party source, unconfirmed on official blog)"},
+        {"location": "other EU DCs", "tier": 3, "evidence": "certified green power"},
+        {"location": "Asia DCs (Singapore, Tokyo)", "tier": 5, "evidence": "no extension of EU claims, see Contabo Asia entry"}
+      ],
+      "specifics": {
+        "hub_europe_pue_design": 1.168,
+        "pue_target_2030": 1.3,
+        "scope1_target_2030": "47% reduction",
+        "membership": "Climate Neutral Data Centre Pact"
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://contabo.com/en-us/sustainability/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Procurement mechanism (PPA vs RECs) NOT specified for EU general", "No third-party audit on the overall claim", "Self-conducted first GHG inventory 2023"]
+    },
+    "Contabo Asia": {
+      "tier": 5,
+      "tier_label": "third-party building certification only",
+      "verification_confidence": "high",
+      "claim_summary": "Singapore DC: BCA-IMDA Green Mark Gold certification (Singapore-specific energy-efficient building standard). Tokyo DC: ISO 27001, PCI DSS, SOC 1/2 Type II, FISC Security; no renewable claim. Parent Contabo's EU claims do not extend.",
+      "datacenters": [
+        {"location": "Singapore", "tier": 5, "evidence": "BCA-IMDA Green Mark Gold building cert (energy efficiency, not renewable energy)"},
+        {"location": "Tokyo", "tier": 6, "evidence": "no environmental claim, only security certs"}
+      ],
+      "verification_method": "direct_fetch",
+      "source_url": "https://contabo.com/en/locations/asia-singapore/",
+      "verified_at": "2026-05-14"
+    },
+    "netcup": {
+      "tier": 3,
+      "tier_label": "own generation + certified mix (mixed coverage)",
+      "verification_confidence": "high",
+      "claim_summary": "Parent Anexia owns 600 kW run-of-river hydroelectric plant in Kammern, Styria, Austria (acquired 2024) covering ~33% of Vienna DC consumption. Solar park in Jaidhof: 1428 panels, ~1127 MWh/year. Listed in Green Web Foundation directory. Other locations claim 100% green electricity without specifying mechanism.",
+      "datacenters": [
+        {"location": "Vienna, AT", "tier": 2, "evidence": "~33% on-site own-generation hydro (600kW Kammern plant), rest certified green electricity"},
+        {"location": "Nuremberg, DE", "tier": 3, "evidence": "100% green electricity (mechanism unspecified)"},
+        {"location": "Amsterdam, NL", "tier": 3, "evidence": "100% green electricity (mechanism unspecified)"},
+        {"location": "Manassas, VA, US", "tier": 5, "evidence": "no specific renewable claim found for US site"}
+      ],
+      "specifics": {
+        "hydro_plant_kw": 600,
+        "hydro_location": "Kammern, Styria, Austria",
+        "hydro_year": 2024,
+        "solar_panels": 1428,
+        "solar_location": "Jaidhof, Lower Austria",
+        "solar_mwh_year": 1127,
+        "vienna_hydro_coverage_pct": 33,
+        "certifications": ["ISO 9001", "ISO 14001", "ISO/IEC 27001", "ISO 27701"]
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.netcup.com/en/about-netcup/green-electricity-energy-efficiency",
+      "verified_at": "2026-05-14"
+    },
+    "Hostinger": {
+      "tier": 3,
+      "tier_label": "100% renewable claimed (mechanism unspecified)",
+      "verification_confidence": "medium",
+      "claim_summary": "Claims 100% renewable electricity across data center operations. Reports 2025 emissions: Scope 1 = 0.2 tCO2e, Scope 2 market-based = 23 tCO2e, Scope 3 = 20,656 tCO2e. Mechanism (PPAs vs RECs vs own generation) NOT specified.",
+      "specifics": {
+        "scope1_tco2e_2025": 0.2,
+        "scope2_market_tco2e_2025": 23,
+        "scope3_tco2e_2025": 20656,
+        "certifications": ["ISO/IEC 27001:2022 (security, not energy)"]
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.hostinger.com/sustainability",
+      "verified_at": "2026-05-14",
+      "caveats": ["Mechanism not disclosed", "No third-party renewable energy verification"]
+    },
+    "M247": {
+      "tier": 5,
+      "tier_label": "vague 'greenest credentials' without quantification",
+      "verification_confidence": "high",
+      "claim_summary": "Bucharest DCs 'boast the greenest credentials in Romania'. ISO 27001 (security, not environmental). Investment in cooling + fire suppression. Free Cooling technology. NO specific renewable energy percentage published. NO ISO 14001 confirmed on official page.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://m247.com/services/host/datacentres/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Earlier 100% renewable claim from secondary source NOT confirmed on M247 official page", "DOWNGRADED from initial Tier 3 to Tier 5 after direct verification"]
+    },
+    "Royale Hosting": {
+      "tier": 4,
+      "tier_label": "inherits partner DC renewable claims",
+      "verification_confidence": "high",
+      "claim_summary": "Claims '100% Renewable Energy Powered' via colocation at Digital Realty (AMS05, AMS17, planned AMS11) and Nikhef Amsterdam. Not own procurement, relies on partner DC certifications.",
+      "datacenters": [
+        {"location": "Digital Realty AMS05", "tier": 4, "evidence": "inherits Digital Realty renewable claim"},
+        {"location": "Digital Realty AMS17", "tier": 4, "evidence": "inherits Digital Realty renewable claim"},
+        {"location": "Nikhef Amsterdam", "tier": 4, "evidence": "inherits Nikhef renewable claim"}
+      ],
+      "verification_method": "direct_fetch",
+      "source_url": "https://royalehosting.net/",
+      "verified_at": "2026-05-14"
+    },
+    "FlokiNET": {
+      "tier": 4,
+      "tier_label": "relies on local grid mix (Iceland geothermal+hydro)",
+      "verification_confidence": "high",
+      "claim_summary": "Operates in Iceland (geothermal + hydro grid ~30g/kWh), Finland (low-carbon grid), Romania. Claims 'clean and renewable' energy based on Iceland's inherent energy composition. Does NOT specify own procurement mechanism.",
+      "datacenters": [
+        {"location": "Iceland", "tier": 4, "evidence": "grid mix ~30 g CO2/kWh (geothermal+hydro)"},
+        {"location": "Finland", "tier": 4, "evidence": "low-carbon grid mix"},
+        {"location": "Romania (Bucharest)", "tier": 6, "evidence": "no specific claim, Romanian grid ~330 g CO2/kWh"}
+      ],
+      "specifics": {
+        "iceland_grid_basis": "geothermal + hydro (~30 g CO2/kWh national average)",
+        "product_marking": "individual servers marked as green-energy-powered"
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://flokinet.is/environmental-responsibility/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Claim relies on grid mix, not own procurement"]
+    },
+    "OVH": {
+      "tier": 3,
+      "tier_label": "100% REF, third-party audited (APAVE, ISO/IEC 30134)",
+      "verification_confidence": "high",
+      "claim_summary": "100% Renewable Energy Factor (REF) across all 9 owned datacenters as of FY2025. INDEPENDENTLY AUDITED by APAVE (engineering risk management firm) to ISO/IEC 30134-3 standard for REF. Audit report dated 30 September 2025. Group-level PUE 1.24, WUE 0.34 L/kWh. Water cooling proprietary since 2003. 27 DCs are rehabilitated buildings.",
+      "datacenters": [
+        {"location": "Roubaix, FR", "tier": 3, "evidence": "PUE 1.30 WUE 0.29 REF 100% (FY25, APAVE audited)"},
+        {"location": "Gravelines, FR", "tier": 3, "evidence": "PUE 1.21 WUE 0.20 REF 100% (FY25, APAVE audited)"},
+        {"location": "Strasbourg, FR", "tier": 3, "evidence": "PUE 1.19 WUE 0.39 REF 100% (FY25, APAVE audited)"},
+        {"location": "Erith, UK", "tier": 3, "evidence": "PUE 1.19 WUE 0.18 REF 100% (FY25, APAVE audited)"},
+        {"location": "Limburg, DE", "tier": 3, "evidence": "PUE 1.19 WUE 0.21 REF 100% (FY25, APAVE audited)"},
+        {"location": "Warsaw, PL", "tier": 3, "evidence": "PUE 1.25 WUE 0.42 REF 100% (FY25, APAVE audited)"},
+        {"location": "Vint Hill, VA, US", "tier": 3, "evidence": "PUE 1.36 WUE 0.40 REF 100% (FY25, APAVE audited)"},
+        {"location": "Hillsboro, OR, US", "tier": 3, "evidence": "PUE 1.27 WUE 1.31 REF 100% (FY25, APAVE audited)"},
+        {"location": "Beauharnois, QC, CA", "tier": 3, "evidence": "PUE 1.21 WUE 0.86 REF 100% (FY25, APAVE audited)"}
+      ],
+      "specifics": {
+        "ref_pct": 100,
+        "group_pue": 1.24,
+        "group_wue_l_per_kwh": 0.34,
+        "water_cooling_year": 2003,
+        "rehabilitated_dcs": 27,
+        "reused_components_ratio": "17 of 100",
+        "third_party_auditor": "APAVE",
+        "audit_standard": "ISO/IEC 30134-3 (Renewable Energy Factor)",
+        "audit_date": "2025-09-30",
+        "report_number": "251334874-875-876"
+      },
+      "verification_method": "direct_pdf",
+      "source_url": "https://www.ovhcloud.com/sites/default/files/external_files/kpis_fy25.pdf",
+      "verified_at": "2026-05-14",
+      "caveats": [
+        "MAJOR UPGRADE from initial Tier 5 to Tier 3 after fetching FY25 KPIs PDF",
+        "REF mechanism (PPA vs RECs) not specified in this PDF but is independently audited to ISO 30134-3 standard",
+        "Procurement specifics likely in separate sustainability report; would need to fetch that for Tier 1-2 evidence",
+        "Audit scope: OVHcloud-owned data centers only"
+      ]
+    },
+    "Vultr": {
+      "tier": 5,
+      "tier_label": "single DC partnership for renewable; no company-wide claim",
+      "verification_confidence": "high",
+      "claim_summary": "March 2024 expansion at Sabey Data Center (Seattle area, SDC Columbia) using clean hydropower for NVIDIA GPU infrastructure. Vultr's main company page and About Us page make NO renewable energy claims for the company as a whole.",
+      "datacenters": [
+        {"location": "Seattle (Sabey SDC Columbia)", "tier": 4, "evidence": "Columbia River hydropower via Sabey partnership"},
+        {"location": "all other Vultr locations (32+)", "tier": 6, "evidence": "no specific renewable procurement claim"}
+      ],
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.vultr.com/company/about-us",
+      "verified_at": "2026-05-14"
+    },
+    "DigitalOcean": {
+      "tier": 5,
+      "tier_label": "some DCs renewable via partner inheritance, no company-wide procurement",
+      "verification_confidence": "medium",
+      "claim_summary": "Frankfurt DC at Interxion claims 100% renewable (via partner). No company-wide DigitalOcean renewable commitment found. Was removed from Green Web Foundation directory recently for not submitting ESG credentials.",
+      "datacenters": [
+        {"location": "Frankfurt (Interxion)", "tier": 4, "evidence": "100% renewable via Interxion partner inheritance"},
+        {"location": "all other DigitalOcean locations", "tier": 6, "evidence": "no company-wide claim, no per-DC public disclosure"}
+      ],
+      "verification_method": "direct_fetch (about page) + search_aggregated (Frankfurt claim)",
+      "source_url": "https://www.digitalocean.com/about",
+      "verified_at": "2026-05-14",
+      "caveats": ["Listed as 'Fossil Fuel Energy' across infrastructure on Green Web Foundation after ESG submission lapse"]
+    },
+    "OneProvider": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "high",
+      "claim_summary": "Main page, contact page, and /about (404) contain no environmental or renewable energy claims of any kind.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.oneprovider.com/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Verified absence of claims on multiple pages"]
+    },
+    "xneelo": {
+      "tier": 6,
+      "tier_label": "energy efficiency only, no renewable procurement claim",
+      "verification_confidence": "high",
+      "claim_summary": "Average PUE 1.2. Free cooling + cold aisle containment. NO renewable energy procurement claim found.",
+      "specifics": {
+        "pue": 1.2,
+        "cooling": "free cooling + cold aisle containment"
+      },
+      "verification_method": "direct_fetch",
+      "source_url": "https://xneelo.co.za/data-centre/",
+      "verified_at": "2026-05-14",
+      "not_in_provider_dataset": true,
+      "note_not_in_dataset": "xneelo hosts user's JHB Nym node (129.232.173.98) but is NOT yet tracked in nym_provider_data.py. Either add to provider dataset (chunk 2) or remove from this evidence file."
+    },
+    "Hurricane Electric": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "high",
+      "claim_summary": "About page contains no renewable energy, sustainability, green hosting, or ESG references.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://he.net/about_us.html",
+      "verified_at": "2026-05-14"
+    },
+    "QuadraNet": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "high",
+      "claim_summary": "Main page contains only logo. /sustainability and /about-us return 404.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.quadranet.com/",
+      "verified_at": "2026-05-14"
+    },
+    "Selectel": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "high",
+      "claim_summary": "Main English-language page does not mention renewable energy, sustainability, environmental claims, or ESG. /sustainability returns 404.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://selectel.ru/en/",
+      "verified_at": "2026-05-14"
+    },
+    "AEZA": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "medium",
+      "claim_summary": "Datacenter page lists infrastructure without renewable energy claims. Hosts at Interxion (DE/AT/NL/SE), Hetzner (FI), MMTS-9 (RU). Inherits partner DC energy mixes but makes no own claims.",
+      "verification_method": "direct_fetch (datacenter page); could not access main page (too many redirects)",
+      "source_url": "https://aeza.net/data-center",
+      "verified_at": "2026-05-14"
+    },
+    "HostHatch": {
+      "tier": 6,
+      "tier_label": "unverified (SPA, no static content)",
+      "verification_confidence": "unverified",
+      "claim_summary": "Main page is JavaScript SPA with no static HTML. /about returns empty. Could not verify presence OR absence of environmental claims.",
+      "verification_method": "spa_no_static_content",
+      "source_url": "https://hosthatch.com/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Tier 6 is a default assignment, NOT a confirmation that disclosure is absent. Re-verify when SPA renders or via direct contact."]
+    },
+    "WorkTitans": {
+      "tier": 6,
+      "tier_label": "unverified (lander redirect, no content)",
+      "verification_confidence": "unverified",
+      "claim_summary": "Main URL redirects to /lander with no substantive content. Could not verify presence OR absence of environmental claims.",
+      "verification_method": "no_page_found",
+      "source_url": "https://www.worktitans.com/",
+      "verified_at": "2026-05-14",
+      "caveats": ["Tier 6 is a default assignment, NOT a confirmation that disclosure is absent. Re-verify when proper site comes online."]
+    },
+    "ServerAstra": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "high",
+      "claim_summary": "Main page lists DC locations (Budapest, Hungary - Dataplex; New York - Teleport on Staten Island) without environmental certifications, green energy initiatives, or sustainability commitments.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://serverastra.com/",
+      "verified_at": "2026-05-14"
+    },
+    "Datacamp (CDN77)": {
+      "tier": 6,
+      "tier_label": "no public renewable disclosure",
+      "verification_confidence": "high",
+      "claim_summary": "About page and main page contain no sustainability, renewable energy, ESG, or green hosting claims. /sustainability returns 404.",
+      "verification_method": "direct_fetch",
+      "source_url": "https://www.cdn77.com/about-us",
+      "verified_at": "2026-05-14"
+    }
+  }
+}

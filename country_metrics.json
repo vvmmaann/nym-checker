@@ -1,0 +1,1364 @@
+{
+  "_meta": {
+    "generated_at": "2026-09-23T15:59:02.152654+00:00",
+    "sources": {
+      "population_millions": {
+        "indicator": "SP.POP.TOTL",
+        "url": "https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL",
+        "provider": "World Bank Open Data",
+        "data_year": "2023"
+      },
+      "gdp_per_capita_kusd": {
+        "indicator": "NY.GDP.PCAP.CD",
+        "url": "https://api.worldbank.org/v2/country/all/indicator/NY.GDP.PCAP.CD",
+        "provider": "World Bank Open Data",
+        "data_year": "2023"
+      },
+      "internet_penetration": {
+        "indicator": "IT.NET.USER.ZS",
+        "url": "https://api.worldbank.org/v2/country/all/indicator/IT.NET.USER.ZS",
+        "provider": "World Bank Open Data",
+        "data_year": "2023"
+      },
+      "freedom_total": {
+        "url": "https://freedomhouse.org/explore-the-map/freedom-on-the-net",
+        "provider": "Freedom House - Freedom in the World",
+        "as_of": "2024-02",
+        "note": "Manually transcribed snapshot - refresh annually each February when FH publishes new edition"
+      },
+      "press_freedom": {
+        "url": "https://rsf.org/en/index",
+        "provider": "Reporters Without Borders (RSF) - World Press Freedom Index",
+        "as_of": "2024-05",
+        "note": "Manually transcribed snapshot - refresh annually each May when RSF publishes new edition"
+      }
+    }
+  },
+  "data": {
+    "AD": {
+      "population_millions": 0.08,
+      "gdp_per_capita_kusd": 46.8,
+      "internet_penetration": 0.942,
+      "freedom_total": 93,
+      "press_freedom": 80.0
+    },
+    "AE": {
+      "population_millions": 10.48,
+      "gdp_per_capita_kusd": 49.9,
+      "internet_penetration": 1.0,
+      "freedom_total": 18,
+      "press_freedom": 33.9
+    },
+    "AF": {
+      "population_millions": 41.45,
+      "gdp_per_capita_kusd": 0.4,
+      "internet_penetration": 0.159,
+      "freedom_total": 6,
+      "press_freedom": 19.9
+    },
+    "AG": {
+      "population_millions": 0.09,
+      "gdp_per_capita_kusd": 22.0,
+      "internet_penetration": 0.721
+    },
+    "AL": {
+      "population_millions": 2.41,
+      "gdp_per_capita_kusd": 9.7,
+      "internet_penetration": 0.831,
+      "freedom_total": 67,
+      "press_freedom": 55.7
+    },
+    "AM": {
+      "population_millions": 2.96,
+      "gdp_per_capita_kusd": 8.2,
+      "internet_penetration": 0.8,
+      "freedom_total": 54,
+      "press_freedom": 60.8
+    },
+    "AO": {
+      "population_millions": 36.75,
+      "gdp_per_capita_kusd": 2.9,
+      "internet_penetration": 0.379,
+      "freedom_total": 28,
+      "press_freedom": 50.2
+    },
+    "AR": {
+      "population_millions": 45.54,
+      "gdp_per_capita_kusd": 14.3,
+      "internet_penetration": 0.892,
+      "freedom_total": 84,
+      "press_freedom": 66.5
+    },
+    "AS": {
+      "population_millions": 0.05
+    },
+    "AT": {
+      "population_millions": 9.13,
+      "gdp_per_capita_kusd": 56.6,
+      "internet_penetration": 0.953,
+      "freedom_total": 92,
+      "press_freedom": 75.5
+    },
+    "AU": {
+      "population_millions": 26.66,
+      "gdp_per_capita_kusd": 65.1,
+      "internet_penetration": 0.961,
+      "freedom_total": 95,
+      "press_freedom": 72.1
+    },
+    "AW": {
+      "population_millions": 0.11,
+      "gdp_per_capita_kusd": 34.9
+    },
+    "AZ": {
+      "population_millions": 10.15,
+      "gdp_per_capita_kusd": 7.1,
+      "internet_penetration": 0.89,
+      "freedom_total": 7,
+      "press_freedom": 33.5
+    },
+    "BA": {
+      "population_millions": 3.19,
+      "gdp_per_capita_kusd": 8.7,
+      "internet_penetration": 0.834,
+      "freedom_total": 53,
+      "press_freedom": 60.8
+    },
+    "BB": {
+      "population_millions": 0.28,
+      "gdp_per_capita_kusd": 25.6,
+      "internet_penetration": 0.697
+    },
+    "BD": {
+      "population_millions": 171.47,
+      "gdp_per_capita_kusd": 2.6,
+      "internet_penetration": 0.445,
+      "freedom_total": 40,
+      "press_freedom": 33.7
+    },
+    "BE": {
+      "population_millions": 11.78,
+      "gdp_per_capita_kusd": 55.2,
+      "internet_penetration": 0.946,
+      "freedom_total": 96,
+      "press_freedom": 81.7
+    },
+    "BF": {
+      "population_millions": 23.03,
+      "gdp_per_capita_kusd": 0.9,
+      "internet_penetration": 0.254,
+      "freedom_total": 27,
+      "press_freedom": 50.6
+    },
+    "BG": {
+      "population_millions": 6.45,
+      "gdp_per_capita_kusd": 15.9,
+      "internet_penetration": 0.804,
+      "freedom_total": 78,
+      "press_freedom": 53.2
+    },
+    "BH": {
+      "population_millions": 1.58,
+      "gdp_per_capita_kusd": 29.3,
+      "internet_penetration": 1.0,
+      "freedom_total": 14,
+      "press_freedom": 35.0
+    },
+    "BI": {
+      "population_millions": 13.69,
+      "gdp_per_capita_kusd": 0.2,
+      "internet_penetration": 0.072
+    },
+    "BJ": {
+      "population_millions": 14.11,
+      "gdp_per_capita_kusd": 1.4,
+      "internet_penetration": 0.324
+    },
+    "BM": {
+      "population_millions": 0.06,
+      "gdp_per_capita_kusd": 133.0
+    },
+    "BN": {
+      "population_millions": 0.46,
+      "gdp_per_capita_kusd": 32.9,
+      "internet_penetration": 0.99
+    },
+    "BO": {
+      "population_millions": 12.24,
+      "gdp_per_capita_kusd": 4.3,
+      "internet_penetration": 0.773,
+      "freedom_total": 64,
+      "press_freedom": 60.7
+    },
+    "BR": {
+      "population_millions": 211.14,
+      "gdp_per_capita_kusd": 10.4,
+      "internet_penetration": 0.842,
+      "freedom_total": 72,
+      "press_freedom": 64.3
+    },
+    "BS": {
+      "population_millions": 0.4,
+      "gdp_per_capita_kusd": 38.2,
+      "internet_penetration": 0.924,
+      "freedom_total": 91,
+      "press_freedom": 79.0
+    },
+    "BT": {
+      "population_millions": 0.79,
+      "gdp_per_capita_kusd": 3.8,
+      "internet_penetration": 0.9,
+      "freedom_total": 61,
+      "press_freedom": 60.3
+    },
+    "BW": {
+      "population_millions": 2.48,
+      "gdp_per_capita_kusd": 7.8,
+      "freedom_total": 72,
+      "press_freedom": 69.4
+    },
+    "BY": {
+      "population_millions": 9.18,
+      "gdp_per_capita_kusd": 7.9,
+      "internet_penetration": 0.915,
+      "freedom_total": 8,
+      "press_freedom": 25.5
+    },
+    "BZ": {
+      "population_millions": 0.41,
+      "gdp_per_capita_kusd": 7.4,
+      "internet_penetration": 0.702
+    },
+    "CA": {
+      "population_millions": 40.05,
+      "gdp_per_capita_kusd": 54.8,
+      "internet_penetration": 0.941,
+      "freedom_total": 97,
+      "press_freedom": 80.0
+    },
+    "CD": {
+      "population_millions": 105.79,
+      "gdp_per_capita_kusd": 0.7,
+      "internet_penetration": 0.19,
+      "freedom_total": 19,
+      "press_freedom": 41.9
+    },
+    "CF": {
+      "population_millions": 5.15,
+      "gdp_per_capita_kusd": 0.5,
+      "internet_penetration": 0.138
+    },
+    "CG": {
+      "population_millions": 6.18,
+      "gdp_per_capita_kusd": 2.5,
+      "internet_penetration": 0.432
+    },
+    "CH": {
+      "population_millions": 8.89,
+      "gdp_per_capita_kusd": 104.4,
+      "internet_penetration": 0.973,
+      "freedom_total": 96,
+      "press_freedom": 81.2
+    },
+    "CI": {
+      "population_millions": 31.17,
+      "gdp_per_capita_kusd": 2.6,
+      "internet_penetration": 0.407,
+      "freedom_total": 49,
+      "press_freedom": 56.4
+    },
+    "CL": {
+      "population_millions": 19.66,
+      "gdp_per_capita_kusd": 17.1,
+      "internet_penetration": 0.945,
+      "freedom_total": 94,
+      "press_freedom": 75.6
+    },
+    "CM": {
+      "population_millions": 28.37,
+      "gdp_per_capita_kusd": 1.7,
+      "internet_penetration": 0.422
+    },
+    "CN": {
+      "population_millions": 1410.71,
+      "gdp_per_capita_kusd": 13.0,
+      "internet_penetration": 0.906,
+      "freedom_total": 9,
+      "press_freedom": 23.1
+    },
+    "CO": {
+      "population_millions": 52.32,
+      "gdp_per_capita_kusd": 7.0,
+      "internet_penetration": 0.773,
+      "freedom_total": 70,
+      "press_freedom": 56.5
+    },
+    "CR": {
+      "population_millions": 5.11,
+      "gdp_per_capita_kusd": 17.1,
+      "internet_penetration": 0.854,
+      "freedom_total": 91,
+      "press_freedom": 81.0
+    },
+    "CU": {
+      "population_millions": 11.02,
+      "internet_penetration": 0.696,
+      "freedom_total": 11,
+      "press_freedom": 25.7
+    },
+    "CV": {
+      "population_millions": 0.52,
+      "gdp_per_capita_kusd": 4.8,
+      "internet_penetration": 0.746
+    },
+    "CW": {
+      "population_millions": 0.15,
+      "gdp_per_capita_kusd": 21.2
+    },
+    "CY": {
+      "population_millions": 1.34,
+      "gdp_per_capita_kusd": 36.6,
+      "internet_penetration": 0.912,
+      "freedom_total": 84,
+      "press_freedom": 70.6
+    },
+    "CZ": {
+      "population_millions": 10.86,
+      "gdp_per_capita_kusd": 31.8,
+      "internet_penetration": 0.86,
+      "freedom_total": 91,
+      "press_freedom": 81.0
+    },
+    "DE": {
+      "population_millions": 83.29,
+      "gdp_per_capita_kusd": 54.8,
+      "internet_penetration": 0.925,
+      "freedom_total": 94,
+      "press_freedom": 81.9
+    },
+    "DJ": {
+      "population_millions": 1.15,
+      "gdp_per_capita_kusd": 3.4,
+      "internet_penetration": 0.648
+    },
+    "DK": {
+      "population_millions": 5.95,
+      "gdp_per_capita_kusd": 68.0,
+      "internet_penetration": 0.988,
+      "freedom_total": 97,
+      "press_freedom": 89.6
+    },
+    "DM": {
+      "population_millions": 0.07,
+      "gdp_per_capita_kusd": 9.9,
+      "internet_penetration": 0.813
+    },
+    "DO": {
+      "population_millions": 11.33,
+      "gdp_per_capita_kusd": 10.6,
+      "internet_penetration": 0.861,
+      "freedom_total": 67,
+      "press_freedom": 64.2
+    },
+    "DZ": {
+      "population_millions": 46.16,
+      "gdp_per_capita_kusd": 5.4,
+      "internet_penetration": 0.762,
+      "freedom_total": 32,
+      "press_freedom": 32.4
+    },
+    "EC": {
+      "population_millions": 17.98,
+      "gdp_per_capita_kusd": 6.7,
+      "internet_penetration": 0.727,
+      "freedom_total": 68,
+      "press_freedom": 58.4
+    },
+    "EE": {
+      "population_millions": 1.37,
+      "gdp_per_capita_kusd": 30.3,
+      "internet_penetration": 0.932,
+      "freedom_total": 94,
+      "press_freedom": 83.5
+    },
+    "EG": {
+      "population_millions": 114.54,
+      "gdp_per_capita_kusd": 3.5,
+      "internet_penetration": 0.74,
+      "freedom_total": 18,
+      "press_freedom": 25.1
+    },
+    "ER": {
+      "population_millions": 3.47
+    },
+    "ES": {
+      "population_millions": 48.35,
+      "gdp_per_capita_kusd": 33.5,
+      "internet_penetration": 0.954,
+      "freedom_total": 90,
+      "press_freedom": 75.2
+    },
+    "ET": {
+      "population_millions": 128.69,
+      "gdp_per_capita_kusd": 1.1,
+      "internet_penetration": 0.203,
+      "freedom_total": 19,
+      "press_freedom": 36.7
+    },
+    "FI": {
+      "population_millions": 5.58,
+      "gdp_per_capita_kusd": 52.9,
+      "internet_penetration": 0.935,
+      "freedom_total": 100,
+      "press_freedom": 86.5
+    },
+    "FJ": {
+      "population_millions": 0.92,
+      "gdp_per_capita_kusd": 5.9,
+      "internet_penetration": 0.741,
+      "freedom_total": 64
+    },
+    "FM": {
+      "population_millions": 0.11,
+      "gdp_per_capita_kusd": 3.9,
+      "internet_penetration": 0.394
+    },
+    "FO": {
+      "population_millions": 0.05,
+      "gdp_per_capita_kusd": 72.5
+    },
+    "FR": {
+      "population_millions": 68.37,
+      "gdp_per_capita_kusd": 44.7,
+      "internet_penetration": 0.868,
+      "freedom_total": 89,
+      "press_freedom": 78.7
+    },
+    "GA": {
+      "population_millions": 2.48,
+      "gdp_per_capita_kusd": 7.8,
+      "internet_penetration": 0.682
+    },
+    "GB": {
+      "population_millions": 68.53,
+      "gdp_per_capita_kusd": 49.9,
+      "internet_penetration": 0.954,
+      "freedom_total": 91,
+      "press_freedom": 76.8
+    },
+    "GD": {
+      "population_millions": 0.12,
+      "gdp_per_capita_kusd": 11.4,
+      "internet_penetration": 0.694
+    },
+    "GE": {
+      "population_millions": 3.72,
+      "gdp_per_capita_kusd": 8.3,
+      "internet_penetration": 0.819,
+      "freedom_total": 58,
+      "press_freedom": 58.9
+    },
+    "GH": {
+      "population_millions": 33.79,
+      "gdp_per_capita_kusd": 2.4,
+      "internet_penetration": 0.707,
+      "freedom_total": 75,
+      "press_freedom": 67.4
+    },
+    "GI": {
+      "population_millions": 0.04
+    },
+    "GL": {
+      "population_millions": 0.06,
+      "gdp_per_capita_kusd": 58.5
+    },
+    "GM": {
+      "population_millions": 2.7,
+      "gdp_per_capita_kusd": 0.9,
+      "internet_penetration": 0.487
+    },
+    "GN": {
+      "population_millions": 14.41,
+      "gdp_per_capita_kusd": 1.6,
+      "internet_penetration": 0.323
+    },
+    "GQ": {
+      "population_millions": 1.85,
+      "gdp_per_capita_kusd": 6.8,
+      "internet_penetration": 0.635
+    },
+    "GR": {
+      "population_millions": 10.41,
+      "gdp_per_capita_kusd": 23.3,
+      "internet_penetration": 0.85,
+      "freedom_total": 86,
+      "press_freedom": 57.2
+    },
+    "GT": {
+      "population_millions": 18.12,
+      "gdp_per_capita_kusd": 5.8,
+      "internet_penetration": 0.567,
+      "freedom_total": 50,
+      "press_freedom": 50.4
+    },
+    "GU": {
+      "population_millions": 0.17
+    },
+    "GW": {
+      "population_millions": 2.15,
+      "gdp_per_capita_kusd": 1.0,
+      "internet_penetration": 0.287
+    },
+    "GY": {
+      "population_millions": 0.83,
+      "gdp_per_capita_kusd": 20.5,
+      "internet_penetration": 0.794
+    },
+    "HK": {
+      "population_millions": 7.54,
+      "gdp_per_capita_kusd": 50.5,
+      "internet_penetration": 0.96,
+      "freedom_total": 41,
+      "press_freedom": 41.3
+    },
+    "HN": {
+      "population_millions": 10.64,
+      "gdp_per_capita_kusd": 3.2,
+      "internet_penetration": 0.581,
+      "freedom_total": 47,
+      "press_freedom": 48.8
+    },
+    "HR": {
+      "population_millions": 3.86,
+      "gdp_per_capita_kusd": 22.2,
+      "internet_penetration": 0.832,
+      "freedom_total": 86,
+      "press_freedom": 67.2
+    },
+    "HT": {
+      "population_millions": 11.64,
+      "gdp_per_capita_kusd": 1.7,
+      "internet_penetration": 0.48
+    },
+    "HU": {
+      "population_millions": 9.59,
+      "gdp_per_capita_kusd": 22.2,
+      "internet_penetration": 0.915,
+      "freedom_total": 65,
+      "press_freedom": 67.0
+    },
+    "ID": {
+      "population_millions": 281.19,
+      "gdp_per_capita_kusd": 4.9,
+      "internet_penetration": 0.692,
+      "freedom_total": 57,
+      "press_freedom": 51.1
+    },
+    "IE": {
+      "population_millions": 5.31,
+      "gdp_per_capita_kusd": 106.8,
+      "internet_penetration": 0.969,
+      "freedom_total": 96,
+      "press_freedom": 84.3
+    },
+    "IL": {
+      "population_millions": 9.85,
+      "gdp_per_capita_kusd": 52.1,
+      "internet_penetration": 0.87,
+      "freedom_total": 74,
+      "press_freedom": 59.4
+    },
+    "IM": {
+      "population_millions": 0.08,
+      "gdp_per_capita_kusd": 90.0
+    },
+    "IN": {
+      "population_millions": 1438.07,
+      "gdp_per_capita_kusd": 2.4,
+      "internet_penetration": 0.603,
+      "freedom_total": 66,
+      "press_freedom": 31.3
+    },
+    "IQ": {
+      "population_millions": 45.07,
+      "gdp_per_capita_kusd": 6.0,
+      "internet_penetration": 0.818,
+      "freedom_total": 31,
+      "press_freedom": 47.0
+    },
+    "IR": {
+      "population_millions": 90.61,
+      "gdp_per_capita_kusd": 5.0,
+      "internet_penetration": 0.837,
+      "freedom_total": 12,
+      "press_freedom": 21.3
+    },
+    "IS": {
+      "population_millions": 0.39,
+      "gdp_per_capita_kusd": 82.2,
+      "internet_penetration": 0.979,
+      "freedom_total": 94,
+      "press_freedom": 84.0
+    },
+    "IT": {
+      "population_millions": 58.98,
+      "gdp_per_capita_kusd": 39.3,
+      "internet_penetration": 0.87,
+      "freedom_total": 90,
+      "press_freedom": 69.8
+    },
+    "JG": {
+      "population_millions": 0.17,
+      "gdp_per_capita_kusd": 74.6
+    },
+    "JM": {
+      "population_millions": 2.84,
+      "gdp_per_capita_kusd": 7.5,
+      "internet_penetration": 0.895,
+      "freedom_total": 78,
+      "press_freedom": 79.6
+    },
+    "JO": {
+      "population_millions": 11.44,
+      "gdp_per_capita_kusd": 4.9,
+      "internet_penetration": 0.925,
+      "freedom_total": 33,
+      "press_freedom": 47.5
+    },
+    "JP": {
+      "population_millions": 124.52,
+      "gdp_per_capita_kusd": 35.2,
+      "internet_penetration": 0.85,
+      "freedom_total": 96,
+      "press_freedom": 65.5
+    },
+    "KE": {
+      "population_millions": 55.34,
+      "gdp_per_capita_kusd": 1.9,
+      "internet_penetration": 0.321,
+      "freedom_total": 51,
+      "press_freedom": 65.0
+    },
+    "KG": {
+      "population_millions": 7.1,
+      "gdp_per_capita_kusd": 2.1,
+      "internet_penetration": 0.91,
+      "freedom_total": 26,
+      "press_freedom": 51.0
+    },
+    "KH": {
+      "population_millions": 17.42,
+      "gdp_per_capita_kusd": 2.4,
+      "internet_penetration": 0.689
+    },
+    "KI": {
+      "population_millions": 0.13,
+      "gdp_per_capita_kusd": 2.2,
+      "internet_penetration": 0.88
+    },
+    "KM": {
+      "population_millions": 0.85,
+      "gdp_per_capita_kusd": 1.7,
+      "internet_penetration": 0.319
+    },
+    "KN": {
+      "population_millions": 0.05,
+      "gdp_per_capita_kusd": 22.6,
+      "internet_penetration": 0.766
+    },
+    "KP": {
+      "population_millions": 26.42
+    },
+    "KR": {
+      "population_millions": 51.71,
+      "gdp_per_capita_kusd": 35.7,
+      "internet_penetration": 0.974,
+      "freedom_total": 83,
+      "press_freedom": 67.0
+    },
+    "KW": {
+      "population_millions": 4.85,
+      "gdp_per_capita_kusd": 34.1,
+      "internet_penetration": 0.997,
+      "freedom_total": 37,
+      "press_freedom": 48.7
+    },
+    "KY": {
+      "population_millions": 0.07,
+      "gdp_per_capita_kusd": 100.1
+    },
+    "KZ": {
+      "population_millions": 20.33,
+      "gdp_per_capita_kusd": 12.9,
+      "internet_penetration": 0.929,
+      "freedom_total": 23,
+      "press_freedom": 41.1
+    },
+    "LA": {
+      "population_millions": 7.66,
+      "gdp_per_capita_kusd": 2.1,
+      "internet_penetration": 0.644
+    },
+    "LB": {
+      "population_millions": 5.77,
+      "gdp_per_capita_kusd": 3.5,
+      "internet_penetration": 0.817,
+      "freedom_total": 41,
+      "press_freedom": 53.7
+    },
+    "LC": {
+      "population_millions": 0.18,
+      "gdp_per_capita_kusd": 13.6,
+      "internet_penetration": 0.674
+    },
+    "LI": {
+      "population_millions": 0.04,
+      "gdp_per_capita_kusd": 206.8,
+      "internet_penetration": 0.981,
+      "freedom_total": 95,
+      "press_freedom": 80.0
+    },
+    "LK": {
+      "population_millions": 22.04,
+      "gdp_per_capita_kusd": 3.8,
+      "internet_penetration": 0.512,
+      "freedom_total": 53,
+      "press_freedom": 55.6
+    },
+    "LR": {
+      "population_millions": 5.49,
+      "gdp_per_capita_kusd": 0.8,
+      "internet_penetration": 0.312
+    },
+    "LS": {
+      "population_millions": 2.31,
+      "gdp_per_capita_kusd": 0.9,
+      "internet_penetration": 0.49
+    },
+    "LT": {
+      "population_millions": 2.87,
+      "gdp_per_capita_kusd": 28.0,
+      "internet_penetration": 0.885,
+      "freedom_total": 89,
+      "press_freedom": 81.4
+    },
+    "LU": {
+      "population_millions": 0.67,
+      "gdp_per_capita_kusd": 133.2,
+      "internet_penetration": 0.993,
+      "freedom_total": 97,
+      "press_freedom": 84.0
+    },
+    "LV": {
+      "population_millions": 1.88,
+      "gdp_per_capita_kusd": 22.7,
+      "internet_penetration": 0.922,
+      "freedom_total": 89,
+      "press_freedom": 79.0
+    },
+    "LY": {
+      "population_millions": 7.31,
+      "gdp_per_capita_kusd": 6.0,
+      "internet_penetration": 0.821,
+      "freedom_total": 9,
+      "press_freedom": 28.7
+    },
+    "MA": {
+      "population_millions": 37.71,
+      "gdp_per_capita_kusd": 3.8,
+      "internet_penetration": 0.91,
+      "freedom_total": 37,
+      "press_freedom": 41.5
+    },
+    "MC": {
+      "population_millions": 0.04,
+      "gdp_per_capita_kusd": 256.8,
+      "internet_penetration": 0.989,
+      "freedom_total": 84,
+      "press_freedom": 76.9
+    },
+    "MD": {
+      "population_millions": 2.46,
+      "gdp_per_capita_kusd": 6.8,
+      "internet_penetration": 0.765,
+      "freedom_total": 62,
+      "press_freedom": 65.0
+    },
+    "ME": {
+      "population_millions": 0.62,
+      "gdp_per_capita_kusd": 12.3,
+      "internet_penetration": 0.886,
+      "freedom_total": 67,
+      "press_freedom": 58.1
+    },
+    "MF": {
+      "population_millions": 0.03
+    },
+    "MG": {
+      "population_millions": 31.2,
+      "gdp_per_capita_kusd": 0.5,
+      "internet_penetration": 0.182,
+      "freedom_total": 60,
+      "press_freedom": 53.0
+    },
+    "MH": {
+      "population_millions": 0.04,
+      "gdp_per_capita_kusd": 6.8,
+      "internet_penetration": 0.641
+    },
+    "MK": {
+      "population_millions": 1.83,
+      "gdp_per_capita_kusd": 8.7,
+      "internet_penetration": 0.885,
+      "freedom_total": 65,
+      "press_freedom": 64.2
+    },
+    "ML": {
+      "population_millions": 23.77,
+      "gdp_per_capita_kusd": 1.0,
+      "internet_penetration": 0.36,
+      "freedom_total": 27,
+      "press_freedom": 40.2
+    },
+    "MM": {
+      "population_millions": 54.13,
+      "gdp_per_capita_kusd": 1.2,
+      "freedom_total": 9,
+      "press_freedom": 24.4
+    },
+    "MN": {
+      "population_millions": 3.48,
+      "gdp_per_capita_kusd": 5.8,
+      "internet_penetration": 0.837,
+      "freedom_total": 84,
+      "press_freedom": 67.5
+    },
+    "MO": {
+      "population_millions": 0.68,
+      "gdp_per_capita_kusd": 67.2,
+      "internet_penetration": 0.898
+    },
+    "MP": {
+      "population_millions": 0.05
+    },
+    "MR": {
+      "population_millions": 5.02,
+      "gdp_per_capita_kusd": 2.1,
+      "internet_penetration": 0.45
+    },
+    "MT": {
+      "population_millions": 0.55,
+      "gdp_per_capita_kusd": 40.9,
+      "internet_penetration": 0.921,
+      "freedom_total": 89,
+      "press_freedom": 79.5
+    },
+    "MU": {
+      "population_millions": 1.25,
+      "gdp_per_capita_kusd": 11.3,
+      "internet_penetration": 0.795,
+      "freedom_total": 86,
+      "press_freedom": 69.5
+    },
+    "MV": {
+      "population_millions": 0.53,
+      "gdp_per_capita_kusd": 12.6,
+      "internet_penetration": 0.846
+    },
+    "MW": {
+      "population_millions": 21.1,
+      "gdp_per_capita_kusd": 0.6,
+      "internet_penetration": 0.18
+    },
+    "MX": {
+      "population_millions": 129.74,
+      "gdp_per_capita_kusd": 13.8,
+      "internet_penetration": 0.812,
+      "freedom_total": 60,
+      "press_freedom": 50.6
+    },
+    "MY": {
+      "population_millions": 35.13,
+      "gdp_per_capita_kusd": 11.4,
+      "internet_penetration": 0.977,
+      "freedom_total": 53,
+      "press_freedom": 53.9
+    },
+    "MZ": {
+      "population_millions": 33.64,
+      "gdp_per_capita_kusd": 0.6,
+      "internet_penetration": 0.199,
+      "freedom_total": 39,
+      "press_freedom": 49.8
+    },
+    "NA": {
+      "population_millions": 2.96,
+      "gdp_per_capita_kusd": 4.2,
+      "internet_penetration": 0.637,
+      "freedom_total": 77,
+      "press_freedom": 79.1
+    },
+    "NC": {
+      "population_millions": 0.29,
+      "gdp_per_capita_kusd": 33.7
+    },
+    "NE": {
+      "population_millions": 26.16,
+      "gdp_per_capita_kusd": 0.6,
+      "internet_penetration": 0.13
+    },
+    "NG": {
+      "population_millions": 227.88,
+      "gdp_per_capita_kusd": 2.1,
+      "internet_penetration": 0.401,
+      "freedom_total": 43,
+      "press_freedom": 49.0
+    },
+    "NI": {
+      "population_millions": 6.82,
+      "gdp_per_capita_kusd": 2.6,
+      "internet_penetration": 0.603,
+      "freedom_total": 23,
+      "press_freedom": 34.2
+    },
+    "NL": {
+      "population_millions": 17.88,
+      "gdp_per_capita_kusd": 63.5,
+      "internet_penetration": 0.97,
+      "freedom_total": 97,
+      "press_freedom": 84.0
+    },
+    "NO": {
+      "population_millions": 5.52,
+      "gdp_per_capita_kusd": 91.0,
+      "internet_penetration": 0.99,
+      "freedom_total": 100,
+      "press_freedom": 91.9
+    },
+    "NP": {
+      "population_millions": 29.69,
+      "gdp_per_capita_kusd": 1.4,
+      "internet_penetration": 0.458,
+      "freedom_total": 64,
+      "press_freedom": 65.8
+    },
+    "NR": {
+      "population_millions": 0.01,
+      "gdp_per_capita_kusd": 13.6,
+      "internet_penetration": 0.83
+    },
+    "NZ": {
+      "population_millions": 5.2,
+      "gdp_per_capita_kusd": 49.3,
+      "internet_penetration": 0.933,
+      "freedom_total": 99,
+      "press_freedom": 80.3
+    },
+    "OM": {
+      "population_millions": 5.05,
+      "gdp_per_capita_kusd": 21.0,
+      "internet_penetration": 0.953,
+      "freedom_total": 23,
+      "press_freedom": 45.6
+    },
+    "PA": {
+      "population_millions": 4.46,
+      "gdp_per_capita_kusd": 18.8,
+      "internet_penetration": 0.685,
+      "freedom_total": 83,
+      "press_freedom": 67.0
+    },
+    "PE": {
+      "population_millions": 33.85,
+      "gdp_per_capita_kusd": 7.9,
+      "internet_penetration": 0.795,
+      "freedom_total": 71,
+      "press_freedom": 56.1
+    },
+    "PF": {
+      "population_millions": 0.28,
+      "gdp_per_capita_kusd": 21.8
+    },
+    "PG": {
+      "population_millions": 10.39,
+      "gdp_per_capita_kusd": 3.0,
+      "internet_penetration": 0.186,
+      "freedom_total": 60
+    },
+    "PH": {
+      "population_millions": 114.89,
+      "gdp_per_capita_kusd": 3.8,
+      "internet_penetration": 0.779,
+      "freedom_total": 55,
+      "press_freedom": 43.4
+    },
+    "PK": {
+      "population_millions": 247.5,
+      "gdp_per_capita_kusd": 1.4,
+      "freedom_total": 35,
+      "press_freedom": 33.9
+    },
+    "PL": {
+      "population_millions": 36.69,
+      "gdp_per_capita_kusd": 22.1,
+      "internet_penetration": 0.864,
+      "freedom_total": 80,
+      "press_freedom": 67.7
+    },
+    "PR": {
+      "population_millions": 3.2,
+      "gdp_per_capita_kusd": 37.0
+    },
+    "PS": {
+      "population_millions": 5.17,
+      "gdp_per_capita_kusd": 3.6,
+      "internet_penetration": 0.866,
+      "freedom_total": 28,
+      "press_freedom": 30.0
+    },
+    "PT": {
+      "population_millions": 10.58,
+      "gdp_per_capita_kusd": 27.6,
+      "internet_penetration": 0.858,
+      "freedom_total": 94,
+      "press_freedom": 81.5
+    },
+    "PW": {
+      "population_millions": 0.02,
+      "gdp_per_capita_kusd": 15.6,
+      "internet_penetration": 0.829
+    },
+    "PY": {
+      "population_millions": 6.84,
+      "gdp_per_capita_kusd": 6.3,
+      "internet_penetration": 0.781,
+      "freedom_total": 64,
+      "press_freedom": 60.7
+    },
+    "QA": {
+      "population_millions": 2.66,
+      "gdp_per_capita_kusd": 80.2,
+      "internet_penetration": 0.982,
+      "freedom_total": 25,
+      "press_freedom": 42.5
+    },
+    "RO": {
+      "population_millions": 19.06,
+      "gdp_per_capita_kusd": 18.2,
+      "internet_penetration": 0.892,
+      "freedom_total": 83,
+      "press_freedom": 67.1
+    },
+    "RS": {
+      "population_millions": 6.62,
+      "gdp_per_capita_kusd": 12.3,
+      "internet_penetration": 0.854,
+      "freedom_total": 57,
+      "press_freedom": 51.9
+    },
+    "RU": {
+      "population_millions": 143.83,
+      "gdp_per_capita_kusd": 14.0,
+      "internet_penetration": 0.922,
+      "freedom_total": 13,
+      "press_freedom": 29.9
+    },
+    "RW": {
+      "population_millions": 13.95,
+      "gdp_per_capita_kusd": 1.1,
+      "internet_penetration": 0.288,
+      "freedom_total": 21,
+      "press_freedom": 39.6
+    },
+    "SA": {
+      "population_millions": 33.7,
+      "gdp_per_capita_kusd": 36.2,
+      "internet_penetration": 1.0,
+      "freedom_total": 8,
+      "press_freedom": 32.4
+    },
+    "SB": {
+      "population_millions": 0.8,
+      "gdp_per_capita_kusd": 1.9,
+      "internet_penetration": 0.287
+    },
+    "SC": {
+      "population_millions": 0.12,
+      "gdp_per_capita_kusd": 18.1,
+      "internet_penetration": 0.86,
+      "freedom_total": 78,
+      "press_freedom": 69.0
+    },
+    "SD": {
+      "population_millions": 50.04,
+      "gdp_per_capita_kusd": 0.8
+    },
+    "SE": {
+      "population_millions": 10.54,
+      "gdp_per_capita_kusd": 55.0,
+      "internet_penetration": 0.957,
+      "freedom_total": 100,
+      "press_freedom": 88.3
+    },
+    "SG": {
+      "population_millions": 5.92,
+      "gdp_per_capita_kusd": 86.4,
+      "internet_penetration": 0.943,
+      "freedom_total": 48,
+      "press_freedom": 42.8
+    },
+    "SI": {
+      "population_millions": 2.12,
+      "gdp_per_capita_kusd": 32.7,
+      "internet_penetration": 0.904,
+      "freedom_total": 95,
+      "press_freedom": 76.0
+    },
+    "SK": {
+      "population_millions": 5.43,
+      "gdp_per_capita_kusd": 24.6,
+      "internet_penetration": 0.872,
+      "freedom_total": 90,
+      "press_freedom": 71.7
+    },
+    "SL": {
+      "population_millions": 8.46,
+      "gdp_per_capita_kusd": 0.8,
+      "internet_penetration": 0.237
+    },
+    "SM": {
+      "population_millions": 0.03,
+      "gdp_per_capita_kusd": 59.9,
+      "internet_penetration": 0.973,
+      "freedom_total": 96,
+      "press_freedom": 87.9
+    },
+    "SN": {
+      "population_millions": 18.08,
+      "gdp_per_capita_kusd": 1.7,
+      "internet_penetration": 0.592,
+      "freedom_total": 67,
+      "press_freedom": 60.1
+    },
+    "SO": {
+      "population_millions": 18.36,
+      "gdp_per_capita_kusd": 0.6,
+      "internet_penetration": 0.261
+    },
+    "SR": {
+      "population_millions": 0.63,
+      "gdp_per_capita_kusd": 5.5,
+      "internet_penetration": 0.874
+    },
+    "SS": {
+      "population_millions": 11.48
+    },
+    "ST": {
+      "population_millions": 0.23,
+      "gdp_per_capita_kusd": 3.0,
+      "internet_penetration": 0.587
+    },
+    "SV": {
+      "population_millions": 6.31,
+      "gdp_per_capita_kusd": 5.3,
+      "internet_penetration": 0.626,
+      "freedom_total": 50,
+      "press_freedom": 49.5
+    },
+    "SX": {
+      "population_millions": 0.04,
+      "gdp_per_capita_kusd": 39.5
+    },
+    "SY": {
+      "population_millions": 23.59,
+      "freedom_total": 1,
+      "press_freedom": 17.4
+    },
+    "SZ": {
+      "population_millions": 1.23,
+      "gdp_per_capita_kusd": 3.8,
+      "internet_penetration": 0.613
+    },
+    "TC": {
+      "population_millions": 0.05,
+      "gdp_per_capita_kusd": 35.5
+    },
+    "TD": {
+      "population_millions": 19.32,
+      "gdp_per_capita_kusd": 0.9,
+      "internet_penetration": 0.12
+    },
+    "TG": {
+      "population_millions": 8.22,
+      "gdp_per_capita_kusd": 1.2,
+      "internet_penetration": 0.376
+    },
+    "TH": {
+      "population_millions": 71.7,
+      "gdp_per_capita_kusd": 7.2,
+      "internet_penetration": 0.895,
+      "freedom_total": 36,
+      "press_freedom": 39.2
+    },
+    "TJ": {
+      "population_millions": 10.39,
+      "gdp_per_capita_kusd": 1.2,
+      "internet_penetration": 0.544,
+      "freedom_total": 5,
+      "press_freedom": 28.4
+    },
+    "TL": {
+      "population_millions": 1.38,
+      "gdp_per_capita_kusd": 1.5
+    },
+    "TM": {
+      "population_millions": 7.36,
+      "gdp_per_capita_kusd": 5.3,
+      "freedom_total": 2,
+      "press_freedom": 17.6
+    },
+    "TN": {
+      "population_millions": 12.2,
+      "gdp_per_capita_kusd": 4.0,
+      "freedom_total": 56,
+      "press_freedom": 51.2
+    },
+    "TO": {
+      "population_millions": 0.1,
+      "gdp_per_capita_kusd": 5.7,
+      "internet_penetration": 0.641
+    },
+    "TR": {
+      "population_millions": 85.33,
+      "gdp_per_capita_kusd": 13.4,
+      "internet_penetration": 0.86,
+      "freedom_total": 33,
+      "press_freedom": 31.6
+    },
+    "TT": {
+      "population_millions": 1.37,
+      "gdp_per_capita_kusd": 18.3,
+      "internet_penetration": 0.82,
+      "freedom_total": 81,
+      "press_freedom": 75.2
+    },
+    "TV": {
+      "population_millions": 0.01,
+      "gdp_per_capita_kusd": 5.1
+    },
+    "TW": {
+      "freedom_total": 94,
+      "press_freedom": 75.0
+    },
+    "TZ": {
+      "population_millions": 66.62,
+      "gdp_per_capita_kusd": 1.2,
+      "internet_penetration": 0.284,
+      "freedom_total": 36,
+      "press_freedom": 49.3
+    },
+    "UA": {
+      "population_millions": 37.73,
+      "gdp_per_capita_kusd": 5.1,
+      "internet_penetration": 0.816,
+      "freedom_total": 50,
+      "press_freedom": 65.0
+    },
+    "UG": {
+      "population_millions": 48.66,
+      "gdp_per_capita_kusd": 1.0,
+      "internet_penetration": 0.093,
+      "freedom_total": 33,
+      "press_freedom": 41.5
+    },
+    "US": {
+      "population_millions": 336.76,
+      "gdp_per_capita_kusd": 82.6,
+      "internet_penetration": 0.935,
+      "freedom_total": 83,
+      "press_freedom": 66.6
+    },
+    "UY": {
+      "population_millions": 3.39,
+      "gdp_per_capita_kusd": 23.4,
+      "internet_penetration": 0.909,
+      "freedom_total": 96,
+      "press_freedom": 79.0
+    },
+    "UZ": {
+      "population_millions": 35.65,
+      "gdp_per_capita_kusd": 3.0,
+      "internet_penetration": 0.89,
+      "freedom_total": 12,
+      "press_freedom": 30.2
+    },
+    "VA": {
+      "freedom_total": 0
+    },
+    "VC": {
+      "population_millions": 0.1,
+      "gdp_per_capita_kusd": 10.6,
+      "internet_penetration": 0.755
+    },
+    "VE": {
+      "population_millions": 28.3,
+      "gdp_per_capita_kusd": 3.6,
+      "internet_penetration": 0.763,
+      "freedom_total": 17,
+      "press_freedom": 28.3
+    },
+    "VG": {
+      "population_millions": 0.04
+    },
+    "VI": {
+      "population_millions": 0.1
+    },
+    "VN": {
+      "population_millions": 100.35,
+      "gdp_per_capita_kusd": 4.3,
+      "internet_penetration": 0.781,
+      "freedom_total": 19,
+      "press_freedom": 25.3
+    },
+    "VU": {
+      "population_millions": 0.32,
+      "gdp_per_capita_kusd": 3.7
+    },
+    "WS": {
+      "population_millions": 0.22,
+      "gdp_per_capita_kusd": 4.8
+    },
+    "XK": {
+      "population_millions": 1.68,
+      "gdp_per_capita_kusd": 6.2,
+      "freedom_total": 56,
+      "press_freedom": 64.6
+    },
+    "YE": {
+      "population_millions": 39.39,
+      "freedom_total": 9,
+      "press_freedom": 30.5
+    },
+    "ZA": {
+      "population_millions": 63.21,
+      "gdp_per_capita_kusd": 6.0,
+      "internet_penetration": 0.783,
+      "freedom_total": 79,
+      "press_freedom": 73.0
+    },
+    "ZM": {
+      "population_millions": 20.72,
+      "gdp_per_capita_kusd": 1.3,
+      "internet_penetration": 0.165,
+      "freedom_total": 53,
+      "press_freedom": 60.3
+    },
+    "ZW": {
+      "population_millions": 16.34,
+      "gdp_per_capita_kusd": 2.2,
+      "internet_penetration": 0.387,
+      "freedom_total": 28,
+      "press_freedom": 47.6
+    }
+  }
+}

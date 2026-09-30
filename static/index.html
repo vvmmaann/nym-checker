@@ -90,6 +90,8 @@ body.embed .nymtbl td:nth-child(3),body.embed .nymtbl th:nth-child(3),body.embed
     <code id="nymDonate" onclick="copyDonate()" title="Click to copy" style="color:#00E599;cursor:pointer;opacity:0.9;background:#00E59910;padding:1px 6px;border-radius:4px;transition:background .15s" onmouseover="this.style.background='#00E59922'" onmouseout="this.style.background='#00E59910'">n1p6sa8m8ttxj369fdyecd022p990utexmapmvkj</code>
   </span>
   <br>
+  <a href="/guide" title="Step-by-step: run a Nym mixnode or exit gateway on a VPS" style="color:inherit;text-decoration:none;opacity:0.55;transition:opacity .2s;display:inline-flex;align-items:center;gap:5px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.55"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 4h2v5l-1-.75L9 9V4zm9 16H6V4h1v9l3-2.25L13 13V4h5v16z"/></svg> Run your own node: setup guide</a>
+  <span style="opacity:0.25;margin:0 8px">·</span>
   <a href="https://github.com/vvmmaann/nym-node-autoupdate" target="_blank" rel="noopener" title="Safe auto-updater for nym-node + QUIC bridge + tunnel (systemd timer, checksum-verified, auto-rollback)" style="color:inherit;text-decoration:none;opacity:0.55;transition:opacity .2s;display:inline-flex;align-items:center;gap:5px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.55">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
     Node auto-updater
@@ -995,6 +997,7 @@ Object.assign(T.it, {
   probeDisclaimer:"La sonda ufficiale di Nym instrada traffico reale ATTRAVERSO il tuo gateway (ingresso/uscita/WG/dVPN) - complementare ai nostri controlli delle porte in ingresso."
 });
 
+(function(){var g={en:'Guide',ru:'Гайд',uk:'Гайд',zh:'指南',es:'Guía',tr:'Rehber',de:'Anleitung',fr:'Guide',it:'Guida'};for(var l in g){if(T[l])T[l].guideTab=g[l];}})();
 var LANGS=[['en','English'],['ru','\u0420\u0443\u0441\u0441\u043a\u0438\u0439'],['uk','\u0423\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u0430'],['zh','\u4e2d\u6587'],['es','Espa\u00f1ol'],['tr','T\u00fcrk\u00e7e'],['de','Deutsch'],['fr','Fran\u00e7ais'],['it','Italiano']];
 var MC={"mixnode":"#A78BFA","entry-gateway":"#38BDF8","exit-gateway":"#F472B6"};
 var DEAD_PHRASES={
@@ -1370,7 +1373,7 @@ function renderHeader(){
     +'<option value="entry-gateway"'+(filterMode==='entry-gateway'?' selected':'')+'>'+(t.entry||'Entry GW')+'</option>'
     +'<option value="exit-gateway"'+(filterMode==='exit-gateway'?' selected':'')+'>'+(t.exit||'Exit GW')+'</option></select>';
   var _leftGrp='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(page==='nodes'?_typeSel:'')+ftab('⚡ '+(t.stakeTab||'Stake'),false,"nymOpenRecommend()",A().success)+'</div>';
-  var _rightGrp='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+ftab((t.network||'Network'),page==='network',"setPage('network')",A().success)+ftab((t.insights||'Insights'),page==='insights',"setPage('insights')",A().warn)+ftab((t.planTab||'Plan'),page==='plan',"setPage('plan')",A().info)+(page==='nodes'?ftab('⊞ '+(explorerView?(t.listView||'List'):(t.tblView||'Table')),explorerView,"toggleExplorer()",A().roleMix):'')+(page==='nodes'?ftab('⧉ '+(t.embedBtn||'Embed'),false,"nymOpenEmbed()",A().info):'')+'</div>';
+  var _rightGrp='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+ftab((t.network||'Network'),page==='network',"setPage('network')",A().success)+ftab((t.insights||'Insights'),page==='insights',"setPage('insights')",A().warn)+ftab((t.planTab||'Plan'),page==='plan',"setPage('plan')",A().info)+ftab('📘 '+(t.guideTab||'Guide'),false,"location.href='/guide'",A().success)+(page==='nodes'?ftab('⊞ '+(explorerView?(t.listView||'List'):(t.tblView||'Table')),explorerView,"toggleExplorer()",A().roleMix):'')+(page==='nodes'?ftab('⧉ '+(t.embedBtn||'Embed'),false,"nymOpenEmbed()",A().info):'')+'</div>';
   h+='<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">'+_leftGrp+_rightGrp+'</div>';
   h+='<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:10px;padding:4px"><input id="si" type="text" aria-label="'+(t.ariaSearch||'Search nodes by IP, moniker, identity or wallet')+'" placeholder="'+(t.phWallet||'IP, hostname, moniker, node id, or n1… wallet')+'" style="width:100%;background:none;border:none;outline:none;padding:10px 12px;color:'+c.tx+';font-family:JetBrains Mono,monospace;font-size:13px"></div>';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><div id="countline" style="font-size:10px;color:'+c.tx4+';font-family:JetBrains Mono,monospace"></div>'+(latestVer?'<div style="font-size:10px;font-family:JetBrains Mono,monospace;color:'+(dark?'#00E599':'#007A50')+';background:'+(dark?'#00E599':'#007A50')+'12;border:1px solid '+(dark?'#00E599':'#007A50')+'30;border-radius:5px;padding:2px 8px">'+(t.latestBadge||'latest')+': v'+esc(latestVer)+'</div>':'')+'</div></div>';
@@ -1395,7 +1398,7 @@ function renderNymesisChrome(t,c){
   h+='<div onclick="setPage(\'nodes\')" style="display:flex;align-items:center;gap:8px;cursor:pointer"><span class="material-icons" style="color:#1af0dc;font-size:22px;text-shadow:1px 1px 0 rgba(0,0,0,.12)">hub</span><span class="nymwordmark" style="font-size:'+(mob?'12px':'15px')+'">NYM<span style="color:#a8760f">CHK</span></span></div>';
   h+='<div style="display:flex;align-items:center;gap:2px;margin-left:4px">';
   var nav=function(icon,pg,title){var on=(page===pg);return '<span onclick="setPage(\''+pg+'\')" title="'+title+'" class="material-icons" style="font-size:20px;padding:7px;border-radius:7px;cursor:pointer;color:'+(on?'#a8760f':'#6d5c3b')+';background:'+(on?'rgba(255,205,39,.25)':'transparent')+'">'+icon+'</span>';};
-  h+=nav('home','nodes','Nodes')+nav('insights','insights','Insights')+nav('public','network','Network')+nav('explore','plan','Plan');
+  h+=nav('home','nodes','Nodes')+nav('insights','insights','Insights')+nav('public','network','Network')+nav('explore','plan','Plan')+'<a href="/guide" title="'+(((T[lang]||T.en).guideTab)||'Guide')+'" class="material-icons" style="font-size:20px;padding:7px;border-radius:7px;cursor:pointer;color:#6d5c3b;text-decoration:none">menu_book</a>';
   h+='</div>';
   h+='<div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">';
   h+='<span class="nym-price" id="nym-price" style="background:#fff;border:1px solid #d9c9a0;color:#6b5a3a">NYM <span class="nym-price-val" style="color:#3a3020">...</span></span>';

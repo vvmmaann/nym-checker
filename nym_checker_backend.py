@@ -593,6 +593,10 @@ async def get_stats(request:Request,_:bool=Depends(require_admin)):
 async def stats_page():
     return FileResponse(STATIC_DIR/"stats.html")
 
+@app.get("/guide",include_in_schema=False)
+async def guide_page():
+    return FileResponse(STATIC_DIR/"guide.html")
+
 # ── Sync Reference ──────────────────────────────────────────
 @app.post("/api/sync-reference")
 async def sync_ref(_:bool=Depends(require_admin)):

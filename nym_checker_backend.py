@@ -2867,6 +2867,7 @@ async def lifespan(app):
     _bg_tasks.append(asyncio.create_task(_bg_refresh_econ_bulk()))
     _bg_tasks.append(asyncio.create_task(_bg_analytics_backfill()))
     _bg_tasks.append(asyncio.create_task(_bg_refresh_dp()))
+    _bg_tasks.append(asyncio.create_task(_bg_tx_reindex()))
     yield
     for t in _bg_tasks:
         t.cancel()
@@ -3022,8 +3023,8 @@ async def node_history(node_id: int, limit: int = Query(60, ge=1, le=500)):
         conn = sqlite3.connect(CTX_DB)
         conn.row_factory = sqlite3.Row
         cur = conn.execute(
-            "SELECT height, iso, kind, owner, amount, success FROM ctx "
-            "WHERE node_id=? ORDER BY height DESC LIMIT ?", (node_id, limit))
+            "SELECT height, iso, kind, owner, amount, success FROM ctx2 "
+            "WHERE node_id=? ORDER BY height DESC, msg_index DESC LIMIT ?", (node_id, limit))
         rows = [dict(r) for r in cur]
         conn.close()
     except Exception:
@@ -3062,8 +3063,8 @@ async def wallet_txs(address: str):
     try:
         _txdb_init()
         st = _tx_index_state(address)
-        if st is None:
-            await _index_wallet(address, full=True)       # first view: full backfill
+        if st is None or (st.get("ver") or 1) < TX_INDEX_VER:
+            await _index_wallet(address, full=True)       # first view or parser upgrade: full pass
         elif (time.time() - st["ts"]) > TX_INDEX_TTL:
             await _index_wallet(address, full=False)       # stale: quick tail for new txs
         txs = _read_wallet_txs(address, TX_SERVE_LIMIT)
@@ -4026,7 +4027,12 @@ async def _fetch_wallet_txs(client, address, limit):
             continue
         seen.add(h)
         try:
-            rows.append(_parse_tx(tr, address))
+            # same per-wallet parser as the archive index; LCD carries the same events + real block time
+            r = _parse_rpc_tx({"hash": h, "height": tr.get("height"),
+                               "tx_result": {"code": tr.get("code"), "events": tr.get("events") or []}}, address)
+            ts = tr.get("timestamp")
+            r["time"] = (ts[:19] + "Z") if ts else None
+            rows.append(r)
         except Exception:
             continue
     rows.sort(key=lambda t: t.get("height", 0), reverse=True)
@@ -4087,50 +4093,163 @@ async def _rpc_tx_search(client, query, page, per_page=100):
         return None
 
 
+TX_INDEX_VER = 2   # bump when the wallet tx parser changes: stale wallets are re-indexed
+_DENOM_LABEL = {"unym": "NYM", "unyx": "NYX"}
+_COIN_RE = re.compile(r"^(\d+)([A-Za-z][A-Za-z0-9/._-]*)$")
+# Nyx fee_collector module account: receives the tx fee, never a real counterparty
+_FEE_COLLECTOR = "n17xpfvakm2amg962yls6f84z3kell8c5lza5z5c"
+# cosmos-sdk message types -> wallet history labels (mixnet contract actions are classified separately)
+_TX_TYPES = {
+    "MsgCreateValidator": "create_validator", "MsgEditValidator": "edit_validator",
+    "MsgDelegate": "stake", "MsgUndelegate": "unstake", "MsgBeginRedelegate": "restake",
+    "MsgCancelUnbondingDelegation": "unstake_cancel",
+    "MsgWithdrawDelegatorReward": "staking_reward", "MsgWithdrawValidatorCommission": "validator_commission",
+    "MsgSetWithdrawAddress": "set_withdraw_address", "MsgUnjail": "unjail",
+    "MsgVote": "vote", "MsgVoteWeighted": "vote", "MsgDeposit": "gov_deposit", "MsgSubmitProposal": "proposal",
+    "MsgTransfer": "ibc_transfer", "MsgExec": "exec", "MsgGrant": "grant", "MsgRevoke": "revoke",
+    "MsgGrantAllowance": "grant", "MsgRevokeAllowance": "revoke",
+}
+
+
+def _coins(s):
+    """'123unym,45unyx' -> {'unym': 123, 'unyx': 45}"""
+    out = {}
+    for part in str(s or "").split(","):
+        m = _COIN_RE.match(part.strip())
+        if m:
+            out[m.group(2)] = out.get(m.group(2), 0) + int(m.group(1))
+    return out
+
+
 def _parse_rpc_tx(t, address):
-    """Classify an archive-RPC tx from its events: the wasm-* event names the action, the
-    transfer event carrying a msg_index gives the amount/direction."""
+    """Classify an archive-RPC tx FOR ONE WALLET.
+
+    Net flow per denom = everything this wallet received minus everything it spent in the tx,
+    with the tx fee added back (the fee is not a transfer to anyone). Works for both event
+    formats on Nyx (old blocks have no msg_index, new ones do). Batch transactions (one tx,
+    many MsgSend, or epoch reconciliation paying many wallets) report the part that concerns
+    this wallet, never the last transfer in the tx. NYX (unyx) is reported as NYX."""
     tr = t.get("tx_result") or {}
     success = 1 if tr.get("code", 0) in (0, None) else 0
-    action = None; wasm = []; nid = None; amt = None; to = None; frm = None
+    flows, peer_in, peer_out = {}, {}, {}
+    actions, wasm = [], []
+    wasm_mine, pledge_dec = [], []      # wasm events naming this wallet; pledge-decrease payouts
+    signer = False
+    fee, fee_payer = {}, None
+    nid = None
     for e in (tr.get("events") or []):
         ty = e.get("type", "")
-        attrs = {a.get("key"): a.get("value") for a in (e.get("attributes") or [])}
-        if ty == "message" and attrs.get("action"):
-            action = attrs["action"].split(".")[-1]
-        if ty.startswith("wasm"):
+        attrs = {}
+        for a in (e.get("attributes") or []):
+            attrs[a.get("key")] = a.get("value")
+        if ty == "tx" and "fee" in attrs:
+            fee, fee_payer = _coins(attrs.get("fee")), attrs.get("fee_payer")
+        elif ty == "message":
+            if attrs.get("action"):
+                actions.append(attrs["action"].split(".")[-1])
+            if attrs.get("sender") == address:
+                signer = True
+        elif ty.startswith("wasm"):
             wasm.append(ty)
+            if address in attrs.values():
+                wasm_mine.append(ty)
+            if ty.endswith("pledge_decrease") and attrs.get("amount"):
+                pledge_dec.append(_coins(attrs["amount"]).get("unym", 0))
             for k, v in attrs.items():
-                if "node_id" in k and nid is None:
-                    try: nid = int(v)
-                    except Exception: pass
-        if ty == "transfer" and attrs.get("msg_index") is not None:
-            amt = _amt_unym(attrs.get("amount")); to = attrs.get("recipient"); frm = attrs.get("sender")
+                if "node_id" in (k or "") and nid is None:
+                    try:
+                        nid = int(v)
+                    except Exception:
+                        pass
+        elif ty == "coin_spent" and attrs.get("spender") == address:
+            for d, v in _coins(attrs.get("amount")).items():
+                flows[d] = flows.get(d, 0) - v
+        elif ty == "coin_received" and attrs.get("receiver") == address:
+            for d, v in _coins(attrs.get("amount")).items():
+                flows[d] = flows.get(d, 0) + v
+        elif ty == "transfer":
+            snd, rcp = attrs.get("sender"), attrs.get("recipient")
+            if rcp == _FEE_COLLECTOR:
+                continue
+            for d, v in _coins(attrs.get("amount")).items():
+                if rcp == address and snd != address:
+                    peer_in.setdefault(d, {})
+                    peer_in[d][snd] = peer_in[d].get(snd, 0) + v
+                elif snd == address and rcp != address:
+                    peer_out.setdefault(d, {})
+                    peer_out[d][rcp] = peer_out[d].get(rcp, 0) + v
+    if fee_payer == address:
+        signer = True
+        for d, v in fee.items():
+            flows[d] = flows.get(d, 0) + v       # the fee is not part of the movement
+    flows = {d: v for d, v in flows.items() if v}
+    denom = "unym" if "unym" in flows else ("unyx" if "unyx" in flows else (next(iter(flows)) if flows else None))
+    net = flows.get(denom, 0) if denom else 0
+    direction = "in" if net > 0 else ("out" if net < 0 else None)
+    amount = round(abs(net) / UNYM, 6) if net else None
+    cp = None
+    if denom and direction:
+        peers = (peer_in if direction == "in" else peer_out).get(denom) or {}
+        if peers:
+            cp = max(peers.items(), key=lambda kv: kv[1])[0]
+    if cp == MIXNET_CONTRACT:
+        cp = None
     wj = " ".join(wasm)
-    typ = "other"; direction = None; amount = None; cp = None
-    if "pending_delegation" in wj:
-        typ, direction, amount, cp = "delegate", "out", amt, "contract"
-    elif "pending_undelegation" in wj:
-        typ, direction, amount = "undelegate", "in", amt
-    elif "withdraw_operator_reward" in wj or "withdraw_delegator_reward" in wj:
-        typ, direction, amount = "withdraw_reward", "in", amt
-    elif "cost_params_update" in wj:
-        typ = "cost_update"
-    elif "family" in wj:
-        typ = "family"
-    elif "bond" in wj:
-        typ, amount = "bond", amt
-    elif action == "MsgSend":
-        if to == address:
-            typ, direction, amount, cp = "receive", "in", amt, frm
+    typ = "other"
+    if signer and wasm:
+        if "pending_delegation" in wj:
+            typ = "delegate"
+        elif "pending_undelegation" in wj:
+            typ = "undelegate"
+        elif "withdraw_operator_reward" in wj or "withdraw_delegator_reward" in wj:
+            typ = "withdraw_reward"
+        elif "cost_params_update" in wj:
+            typ = "cost_update"
+        elif "family" in wj:
+            typ = "family"
+        elif "unbond" in wj:
+            typ = "unbond"
+        elif "pledge_decrease" in wj or "decrease_pledge" in wj:
+            typ = "pledge_decrease"
+        elif "pledge" in wj:
+            typ = "pledge_more"
+        elif "bond" in wj:
+            typ = "bond"
         else:
-            typ, direction, amount, cp = "send", "out", amt, to
-    elif action == "MsgWithdrawDelegatorReward":
-        typ, direction, amount = "staking_reward", "in", amt
-    try: h = int(t.get("height"))
-    except Exception: h = 0
+            typ = "contract"
+    elif signer:
+        acts = [a for a in actions if a != "MsgExec"] or actions
+        a0 = acts[0] if acts else ""
+        if a0 in ("MsgSend", "MsgMultiSend") or not a0:
+            typ = "receive" if direction == "in" else ("send" if direction == "out" else "other")
+        else:
+            typ = _TX_TYPES.get(a0, re.sub(r"^Msg", "", a0).lower() or "other")
+    else:
+        # The wallet did not sign this tx, so it can only have received something. Epoch
+        # reconciliation pays many wallets in one tx: attribute by the wasm event that names
+        # this wallet, else by a pledge-decrease amount that equals what it received.
+        mine = " ".join(wasm_mine)
+        if direction == "in" and "undelegation" in mine:
+            typ = "undelegate"
+        elif direction == "in" and "withdraw" in mine:
+            typ = "withdraw_reward"
+        elif direction == "in" and denom == "unym" and net in pledge_dec:
+            typ = "pledge_decrease"
+        elif direction == "in" and "unbonding" in wj:
+            typ = "unbond"
+        elif direction == "in" and "MsgWithdrawDelegatorReward" in actions:
+            typ = "withdraw_reward"
+        elif direction == "in":
+            typ = "receive"
+        elif direction == "out":
+            typ = "send"
+    try:
+        h = int(t.get("height"))
+    except Exception:
+        h = 0
     return {"hash": t.get("hash"), "height": h, "type": typ, "node_id": nid,
-            "amount": amount, "counterparty": cp, "direction": direction, "success": success}
+            "amount": amount, "denom": _DENOM_LABEL.get(denom, denom) if denom else None,
+            "counterparty": cp, "direction": direction, "success": success}
 
 
 def _txdb_init():
@@ -4143,21 +4262,96 @@ def _txdb_init():
             PRIMARY KEY(address, hash))""")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_wtx ON wallet_txs(address, height DESC)")
         conn.execute("CREATE TABLE IF NOT EXISTS tx_index_state(address TEXT PRIMARY KEY, ts REAL, total INTEGER)")
+        conn.execute("CREATE TABLE IF NOT EXISTS block_times(height INTEGER PRIMARY KEY, time TEXT)")
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(wallet_txs)")]
+        if "denom" not in cols:
+            conn.execute("ALTER TABLE wallet_txs ADD COLUMN denom TEXT")
+        scols = [r[1] for r in conn.execute("PRAGMA table_info(tx_index_state)")]
+        if "ver" not in scols:
+            conn.execute("ALTER TABLE tx_index_state ADD COLUMN ver INTEGER DEFAULT 1")
         conn.commit()
     finally:
         conn.close()
 
 
-async def _index_wallet(address, full=True):
+def _interp_block_time(height):
+    """Fallback for a height whose real time is not cached yet: interpolate between the nearest
+    cached real block times; old static anchors only if the cache has nothing around it."""
+    import sqlite3
+    from datetime import datetime, timezone
+    conn = sqlite3.connect(str(TXDB))
+    try:
+        lo = conn.execute("SELECT height, time FROM block_times WHERE height<=? ORDER BY height DESC LIMIT 1", (height,)).fetchone()
+        hi = conn.execute("SELECT height, time FROM block_times WHERE height>=? ORDER BY height ASC LIMIT 1", (height,)).fetchone()
+    finally:
+        conn.close()
+    def ep(s):
+        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+    if lo and hi and hi[0] != lo[0]:
+        t = ep(lo[1]) + (height - lo[0]) * (ep(hi[1]) - ep(lo[1])) / (hi[0] - lo[0])
+        return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if lo and lo[0] == height:
+        return lo[1]
+    return _height_to_time(height)
+
+
+async def _block_times(client, heights, cap=600):
+    """Real block times for heights (from the block header), cached in SQLite. At most `cap`
+    new lookups per call; the rest are interpolated from cached neighbours until a later pass."""
+    import sqlite3
+    hs = sorted(set(h for h in heights if h))
+    known = {}
+    conn = sqlite3.connect(str(TXDB))
+    try:
+        for i in range(0, len(hs), 500):
+            chunk = hs[i:i + 500]
+            q = "SELECT height, time FROM block_times WHERE height IN (%s)" % ",".join("?" * len(chunk))
+            known.update(dict(conn.execute(q, chunk).fetchall()))
+    finally:
+        conn.close()
+    missing = [h for h in hs if h not in known][:cap]
+    got = {}
+    sem = asyncio.Semaphore(12)
+
+    async def one(h):
+        async with sem:
+            try:
+                r = await client.get(f"{NYM_RPC_ARCHIVE}/header?height={h}", timeout=15)
+                ts = (((r.json() or {}).get("result") or {}).get("header") or {}).get("time")
+                if ts:
+                    got[h] = ts[:19] + "Z"
+            except Exception:
+                pass
+    if missing:
+        await asyncio.gather(*(one(h) for h in missing))
+    if got:
+        conn = sqlite3.connect(str(TXDB))
+        try:
+            conn.executemany("INSERT OR IGNORE INTO block_times(height, time) VALUES(?,?)", list(got.items()))
+            conn.commit()
+        finally:
+            conn.close()
+        known.update(got)
+    for h in hs:
+        if h not in known:
+            known[h] = _interp_block_time(h)
+    return known
+
+
+async def _index_wallet(address, full=True, max_pages=None):
     """Backfill (full) or tail (page 1 only) a wallet's tx history from the archive RPC into
-    SQLite. Indexes both directions (message.sender + transfer.recipient), deduped by hash."""
+    SQLite. Indexes both directions (message.sender + transfer.recipient), deduped by hash.
+    A full pass rewrites the wallet's rows, so a parser fix reaches every stored tx."""
+    _txdb_init()
     rows = {}
+    complete = True     # every page of both queries answered; only then may stale rows go
     async with httpx.AsyncClient(timeout=25.0) as client:
         for q in (f"message.sender='{address}'", f"transfer.recipient='{address}'"):
             page = 1
-            while page <= TX_INDEX_MAX_PAGES:
+            while page <= (max_pages or TX_INDEX_MAX_PAGES):
                 res = await _rpc_tx_search(client, q, page)
                 if not res:
+                    complete = False
                     break
                 txs = res.get("txs") or []
                 for t in txs:
@@ -4168,19 +4362,28 @@ async def _index_wallet(address, full=True):
                 if not full or not txs or page * 100 >= total:
                     break
                 page += 1
+            else:
+                complete = False    # hit TX_INDEX_MAX_PAGES: older history was not re-read
+        times = await _block_times(client, [r["height"] for r in rows.values()])
     for r in rows.values():
-        r["time"] = _height_to_time(r["height"])
+        r["time"] = times.get(r["height"])
     import sqlite3
     conn = sqlite3.connect(str(TXDB))
     try:
         conn.executemany("""INSERT OR REPLACE INTO wallet_txs
-            (address, hash, height, time, type, node_id, amount, counterparty, direction, success)
-            VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            (address, hash, height, time, type, node_id, amount, counterparty, direction, success, denom)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
             [(address, r["hash"], r["height"], r.get("time"), r["type"], r["node_id"],
-              r["amount"], r["counterparty"], r["direction"], r["success"]) for r in rows.values()])
+              r["amount"], r["counterparty"], r["direction"], r["success"], r.get("denom")) for r in rows.values()])
+        if full and rows and complete:
+            # drop rows the fresh pass did not produce (left over from an older parser)
+            conn.execute("DELETE FROM wallet_txs WHERE address=? AND hash NOT IN (%s)" % ",".join("?" * len(rows)),
+                         (address, *rows.keys()))
         tot = conn.execute("SELECT COUNT(*) FROM wallet_txs WHERE address=?", (address,)).fetchone()[0]
-        conn.execute("INSERT OR REPLACE INTO tx_index_state(address, ts, total) VALUES(?,?,?)",
-                     (address, time.time(), tot))
+        prev = conn.execute("SELECT ver FROM tx_index_state WHERE address=?", (address,)).fetchone()
+        ver = TX_INDEX_VER if (full and complete) else ((prev[0] if prev else 1) or 1)
+        conn.execute("INSERT OR REPLACE INTO tx_index_state(address, ts, total, ver) VALUES(?,?,?,?)",
+                     (address, time.time(), tot, ver))
         conn.commit()
     finally:
         conn.close()
@@ -4191,7 +4394,7 @@ def _read_wallet_txs(address, limit):
     import sqlite3
     conn = sqlite3.connect(str(TXDB))
     try:
-        cur = conn.execute("""SELECT hash, height, time, type, node_id, amount, counterparty, direction, success
+        cur = conn.execute("""SELECT hash, height, time, type, node_id, amount, denom, counterparty, direction, success
             FROM wallet_txs WHERE address=? ORDER BY height DESC LIMIT ?""", (address, limit))
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
@@ -4203,12 +4406,49 @@ def _tx_index_state(address):
     import sqlite3
     if not TXDB.exists():
         return None
+    _txdb_init()
     conn = sqlite3.connect(str(TXDB))
     try:
-        r = conn.execute("SELECT ts, total FROM tx_index_state WHERE address=?", (address,)).fetchone()
-        return {"ts": r[0], "total": r[1]} if r else None
+        r = conn.execute("SELECT ts, total, ver FROM tx_index_state WHERE address=?", (address,)).fetchone()
+        return {"ts": r[0], "total": r[1], "ver": r[2] or 1} if r else None
     finally:
         conn.close()
+
+
+async def _bg_tx_reindex():
+    """Re-index, one at a time, every wallet whose stored history came from an older parser,
+    so wallets nobody opens get corrected too. Gentle on the archive RPC."""
+    import sqlite3
+    await asyncio.sleep(90)
+    while True:
+        try:
+            _txdb_init()
+            conn = sqlite3.connect(str(TXDB))
+            try:
+                stale = [r[0] for r in conn.execute(
+                    "SELECT address FROM tx_index_state WHERE COALESCE(ver,1)<? ORDER BY ts DESC LIMIT 20", (TX_INDEX_VER,))]
+            finally:
+                conn.close()
+            if not stale:
+                await asyncio.sleep(3600)
+                continue
+            for a in stale:
+                try:
+                    await _index_wallet(a, full=True, max_pages=400)   # background: deep pass is fine
+                except Exception as e:
+                    print(f"[!] tx reindex {a[:12]}: {e}")
+                await asyncio.sleep(3)
+        except Exception as e:
+            print(f"[!] tx reindex loop: {e}")
+            await asyncio.sleep(60)
+
+
+
+
+
+
+
+
 
 
 async def _fetch_wallet(address):

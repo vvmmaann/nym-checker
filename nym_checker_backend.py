@@ -4438,6 +4438,9 @@ async def _bg_tx_reindex():
                 except Exception as e:
                     print(f"[!] tx reindex {a[:12]}: {e}")
                 await asyncio.sleep(3)
+            # whatever is still stale failed a complete pass (RPC hiccup mid-pagination):
+            # back off instead of hammering the archive node with the same deep pass
+            await asyncio.sleep(1800)
         except Exception as e:
             print(f"[!] tx reindex loop: {e}")
             await asyncio.sleep(60)

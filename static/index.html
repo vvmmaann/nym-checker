@@ -1506,7 +1506,8 @@ function renderNymesisTable(t,c){
 }
 function nymStat(label,val,unit,col){return '<div style="background:#fff;border:1px solid #d9c9a0;border-radius:var(--r-2);padding:var(--sp-3);overflow:hidden;min-width:0"><div style="font-size:var(--fs-label);color:#6d5c3b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(label)+'</div><div style="font-size:var(--fs-stat);font-weight:700;color:'+(col||'#3a3020')+';font-family:Fira Code,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(val==null?'<span style="color:#c0ab7c">·</span>':val)+(val!=null&&unit?'<span style="font-size:var(--fs-label);color:#6d5c3b;font-weight:400"> '+unit+'</span>':'')+'</div></div>';}
 function nymOpenRow(nid,ip){if(_nymOpen===nid){_nymOpen=null;history.replaceState(null,'',query?('/?q='+encodeURIComponent(query)):'/');renderContent();return;}_nymOpen=nid;history.replaceState(null,'','/?node='+encodeURIComponent(ip));renderContent();try{var el=document.getElementById('nymDetail');if(el)el.scrollIntoView({block:'nearest',behavior:(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)?'auto':'smooth'});}catch(e){}nymHydrateDetail(nid,ip);}
-function nymDetailUpd(nid){if(_nymOpen!==nid)return;var el=document.getElementById('nymDetail');var row=(_nymTable||[]).find(function(x){return x.node_id===nid;});if(el&&row){var m=_detCapture(el);el.innerHTML=nymDetailHtml(row,T[lang]||T.en,C());_detRestore(el,m);}}
+function nymDetailUpd(nid){nymSafe('upd'+nid,function(){_nymDetailUpdNow(nid);});}
+function _nymDetailUpdNow(nid){if(_nymOpen!==nid)return;var el=document.getElementById('nymDetail');var row=(_nymTable||[]).find(function(x){return x.node_id===nid;});if(el&&row){var m=_detCapture(el);el.innerHTML=nymDetailHtml(row,T[lang]||T.en,C());_detRestore(el,m);}}
 function nymHydrateDetail(nid,ip){
   if(_nymDetail[nid])return; _nymDetail[nid]={loading:true};
   fetch('/api/economics/'+nid).then(function(r){return r.json();}).then(function(ec){var d=_nymDetail[nid];if(!d)return;d.economics=ec;d.loading=false;nymDetailUpd(nid);
@@ -1659,6 +1660,17 @@ function renderNymesisDetail(r,t,c){
 }
 // Re-renders of the same view (a node page hydrating economics/delegators/history in steps)
 // must not collapse the sections the user has opened. Key = summary text without its numbers.
+// Tap guard: background updates (a node page loading economics/delegators/history in steps,
+// the 3-min table refresh) replace the DOM. If that lands between touchstart and click, the
+// tapped element is gone and the tap is lost - on phones the address needed two taps. While a
+// pointer is down and for a short moment after, such updates wait in a queue (one per key) and
+// run right after. Renders caused by the user's own click are never deferred.
+var _tapDown=false,_tapUntil=0,_tapQ={},_tapQn=[];
+function _tapBusy(){return _tapDown||Date.now()<_tapUntil;}
+function _tapFlush(){if(_tapBusy())return;var ks=_tapQn,q=_tapQ;_tapQ={};_tapQn=[];for(var i=0;i<ks.length;i++){try{q[ks[i]]();}catch(e){}}}
+function nymSafe(key,fn){if(!_tapBusy()){fn();return;}if(!(key in _tapQ))_tapQn.push(key);_tapQ[key]=fn;}
+document.addEventListener('pointerdown',function(){_tapDown=true;},true);
+['pointerup','pointercancel'].forEach(function(ev){document.addEventListener(ev,function(){_tapDown=false;_tapUntil=Date.now()+450;setTimeout(_tapFlush,480);},true);});
 var _detState={vid:null};
 function _detViewId(){return theme+'|'+page+'|'+((selected&&selected.node_ip)||'')+'|'+(walletSelected||'')+'|'+(operatorSelected||'')+'|'+(providerSelected||'')+'|'+(deploySelected||'');}
 function _detKeys(el){var out=[],seen={},ds=el.querySelectorAll('details');for(var i=0;i<ds.length;i++){var sm=ds[i].querySelector('summary');var k=(sm?sm.textContent:'').replace(/[0-9.,·%+\-]/g,'').replace(/\s+/g,' ').trim().slice(0,40);seen[k]=(seen[k]||0)+1;out.push([k+'#'+seen[k],ds[i]]);}return out;}
@@ -2552,7 +2564,7 @@ function doBatchCheckSelected(){
   }).catch(function(e){batchChecking=false;alert('Error: '+e);renderContent();});
 }
 function goBackFromBatch(){batchResults=null;batchChecking=false;popupResult=null;renderPopup();renderContent();}
-function openPopup(idx){if(!batchResults||!batchResults[idx])return;popupResult=batchResults[idx];renderPopup();nymScrollLock();hydrateNode(popupResult,function(){return popupResult;},function(){renderPopup();});}
+function openPopup(idx){if(!batchResults||!batchResults[idx])return;popupResult=batchResults[idx];renderPopup();nymScrollLock();hydrateNode(popupResult,function(){return popupResult;},function(){nymSafe('pp',renderPopup);});}
 function closePopup(){popupResult=null;renderPopup();}
 function renderPopup(){
   var el=document.getElementById('popup');if(!el)return;
@@ -2588,7 +2600,7 @@ function hydrateNode(r,getCur,rerender){
 }
 function doCheck(ip){_navReturn=walletSelected?{t:'wallet',a:walletSelected}:null;checking=true;selected=null;walletSelected=null;walletDetail=null;operatorSelected=null;operatorDetail=null;providerSelected=null;providerDetail=null;deploySelected=null;deployDetail=null;page='nodes';renderContent();history.replaceState(null,'','/?node='+encodeURIComponent(ip));fetch('/api/check?target='+encodeURIComponent(ip)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(d){selected=d;checking=false;renderHeader();renderContent();// also fetch 30-day history (lazy, non-blocking)
   fetch('/api/history/'+encodeURIComponent(d.node_ip||ip)+'?days=30').then(function(r){return r.json();}).then(function(hd){if(selected&&(selected.node_ip||'')===(d.node_ip||ip)){selected.history=hd.snapshots||[];renderContent();}}).catch(function(){});
-  hydrateNode(selected,function(){return selected;},function(){renderContent();});}).catch(function(e){selected={error:String(e),node_ip:ip,score:{total:0}};checking=false;renderHeader();renderContent();});}
+  hydrateNode(selected,function(){return selected;},function(){nymSafe('rc',renderContent);});}).catch(function(e){selected={error:String(e),node_ip:ip,score:{total:0}};checking=false;renderHeader();renderContent();});}
 
 function goBack(){if(_navReturn&&_navReturn.t==='wallet'){var a=_navReturn.a;_navReturn=null;selected=null;openWallet(a);return;}selected=null;history.replaceState(null,'','/');renderContent();}
 function goHome(){filterMode=null;selected=null;walletSelected=null;walletDetail=null;_navReturn=null;batchResults=null;batchChecking=false;batchSelected={};operatorSelected=null;operatorDetail=null;providerSelected=null;providerDetail=null;deploySelected=null;deployDetail=null;showLimit=50;page='nodes';history.replaceState(null,'','/');renderContent();}
@@ -2619,7 +2631,7 @@ setInterval(function(){
   if(document.hidden||_nymTable==null)return;
   fetch('/api/nymesis').then(function(r){return r.json();}).then(function(d){
     if(!d||!d.rows)return;_nymTable=d.rows;_nymTableEpoch=d.epoch;
-    if(theme==='nymesis'&&page==='nodes'&&!selected&&!walletSelected&&!operatorSelected&&!providerSelected&&!deploySelected&&!batchResults&&!batchChecking&&!_stakeModal&&!_recModal&&!popupResult)renderContent();
+    if(theme==='nymesis'&&page==='nodes'&&!selected&&!walletSelected&&!operatorSelected&&!providerSelected&&!deploySelected&&!batchResults&&!batchChecking&&!_stakeModal&&!_recModal&&!popupResult)nymSafe('rc',renderContent);
   }).catch(function(){});
 },180000);
 

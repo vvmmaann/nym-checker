@@ -1345,9 +1345,9 @@ function renderRecommendModal(){
 }
 function setType(v){filterMode=(!v||v==='all')?null:v;selected=null;walletSelected=null;walletDetail=null;operatorSelected=null;providerSelected=null;deploySelected=null;page='nodes';history.replaceState(null,'','/');renderHeader();renderContent();}
 function nymOnSearch(v){
-  v=(v||'').trim();
+  v=(v||'').trim();var _pg=page;
   if(/^n1[a-z0-9]{37,}$/i.test(v)){openWallet(v);return;}
-  query=v;selected=null;walletSelected=null;walletDetail=null;_navReturn=null;batchResults=null;batchChecking=false;batchSelected={};showLimit=50;operatorSelected=null;operatorDetail=null;providerSelected=null;providerDetail=null;deploySelected=null;deployDetail=null;page='nodes';history.replaceState(null,'',v?('/?q='+encodeURIComponent(v)):'/');renderContent();
+  query=v;selected=null;walletSelected=null;walletDetail=null;_navReturn=null;batchResults=null;batchChecking=false;batchSelected={};showLimit=50;operatorSelected=null;operatorDetail=null;providerSelected=null;providerDetail=null;deploySelected=null;deployDetail=null;page='nodes';history.replaceState(null,'',v?('/?q='+encodeURIComponent(v)):'/');renderContent();if(_pg!=='nodes'){renderHeader();var _si=document.getElementById('si');if(_si){_si.focus();try{_si.setSelectionRange(_si.value.length,_si.value.length);}catch(e){}}}
 }
 function renderHeader(){
   if(EMBED){var eh=document.getElementById('header');if(eh)eh.style.display='none';return;}
@@ -1506,7 +1506,7 @@ function renderNymesisTable(t,c){
 }
 function nymStat(label,val,unit,col){return '<div style="background:#fff;border:1px solid #d9c9a0;border-radius:var(--r-2);padding:var(--sp-3);overflow:hidden;min-width:0"><div style="font-size:var(--fs-label);color:#6d5c3b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(label)+'</div><div style="font-size:var(--fs-stat);font-weight:700;color:'+(col||'#3a3020')+';font-family:Fira Code,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(val==null?'<span style="color:#c0ab7c">·</span>':val)+(val!=null&&unit?'<span style="font-size:var(--fs-label);color:#6d5c3b;font-weight:400"> '+unit+'</span>':'')+'</div></div>';}
 function nymOpenRow(nid,ip){if(_nymOpen===nid){_nymOpen=null;history.replaceState(null,'',query?('/?q='+encodeURIComponent(query)):'/');renderContent();return;}_nymOpen=nid;history.replaceState(null,'','/?node='+encodeURIComponent(ip));renderContent();try{var el=document.getElementById('nymDetail');if(el)el.scrollIntoView({block:'nearest',behavior:(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)?'auto':'smooth'});}catch(e){}nymHydrateDetail(nid,ip);}
-function nymDetailUpd(nid){if(_nymOpen!==nid)return;var el=document.getElementById('nymDetail');var row=(_nymTable||[]).find(function(x){return x.node_id===nid;});if(el&&row)el.innerHTML=nymDetailHtml(row,T[lang]||T.en,C());}
+function nymDetailUpd(nid){if(_nymOpen!==nid)return;var el=document.getElementById('nymDetail');var row=(_nymTable||[]).find(function(x){return x.node_id===nid;});if(el&&row){var m=_detCapture(el);el.innerHTML=nymDetailHtml(row,T[lang]||T.en,C());_detRestore(el,m);}}
 function nymHydrateDetail(nid,ip){
   if(_nymDetail[nid])return; _nymDetail[nid]={loading:true};
   fetch('/api/economics/'+nid).then(function(r){return r.json();}).then(function(ec){var d=_nymDetail[nid];if(!d)return;d.economics=ec;d.loading=false;nymDetailUpd(nid);
@@ -1569,7 +1569,7 @@ function renderNodeHistoryCard(ev,t,c){
     var shortw=w?(w.slice(0,12)+'…'+w.slice(-6)):'';
     h+='<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0e6cf;font-size:11px">';
     h+='<span style="color:'+col+';font-weight:700;min-width:82px">'+lab+'</span>';
-    h+='<span style="font-family:Fira Code,monospace;color:#6d5c3b;cursor:pointer" title="'+esc(w)+'" onclick="event.stopPropagation();doCheck(\''+esc(w)+'\')">'+esc(shortw)+'</span>';
+    h+='<span style="font-family:Fira Code,monospace;color:#6d5c3b;cursor:pointer" title="'+esc(w)+'" onclick="event.stopPropagation();openWallet(\''+esc(w)+'\')">'+esc(shortw)+'</span>';
     h+='<span style="margin-left:auto;font-weight:700;color:#2b2417">'+amt+'</span>';
     h+='<span style="color:#a89468;min-width:74px;text-align:right">'+esc((e.iso||'').replace('T',' ').slice(5,16))+'</span>';
     h+='</div>';
@@ -1657,7 +1657,21 @@ function renderNymesisDetail(r,t,c){
   h+='</div>';
   el.innerHTML=h;
 }
+// Re-renders of the same view (a node page hydrating economics/delegators/history in steps)
+// must not collapse the sections the user has opened. Key = summary text without its numbers.
+var _detState={vid:null};
+function _detViewId(){return theme+'|'+page+'|'+((selected&&selected.node_ip)||'')+'|'+(walletSelected||'')+'|'+(operatorSelected||'')+'|'+(providerSelected||'')+'|'+(deploySelected||'');}
+function _detKeys(el){var out=[],seen={},ds=el.querySelectorAll('details');for(var i=0;i<ds.length;i++){var sm=ds[i].querySelector('summary');var k=(sm?sm.textContent:'').replace(/[0-9.,·%+\-]/g,'').replace(/\s+/g,' ').trim().slice(0,40);seen[k]=(seen[k]||0)+1;out.push([k+'#'+seen[k],ds[i]]);}return out;}
+function _detCapture(el){var m={},ks=_detKeys(el);for(var i=0;i<ks.length;i++)m[ks[i][0]]=ks[i][1].open;return m;}
+function _detRestore(el,m){if(!m)return;var ks=_detKeys(el);for(var i=0;i<ks.length;i++){if(ks[i][0] in m)ks[i][1].open=m[ks[i][0]];}}
 function renderContent(){
+  var el=document.getElementById('content'),vid=_detViewId();
+  var m=(el&&_detState.vid===vid)?_detCapture(el):null;
+  _renderContentInner();
+  _detState.vid=_detViewId();
+  var el2=document.getElementById('content');if(m&&el2)_detRestore(el2,m);
+}
+function _renderContentInner(){
   var t=T[lang]||T.en,c=C();
   // Nymesis nodes view = the explorer table. Only a genuine full-screen alternate (a node detail,
   // a wallet, or an operator page) or leaving the nodes page replaces it. Stray insights/network

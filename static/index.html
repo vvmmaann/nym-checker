@@ -163,14 +163,14 @@ Object.assign(T.de,{stressBufHead:"Niedriger Stress-Score. Versuchen Sie einen g
 Object.assign(T.fr,{stressBufHead:"Score de stress faible. Essayez un tampon de sortie plus grand : ajoutez à config.toml (ou à une section [mixnet.debug] existante) :",stressBufTail:"Puis lancez {cmd}. Le score est une moyenne sur 24 h, revenez dans une journée. Toujours sous 90 % ? Le CPU est trop lent, passez à un serveur plus rapide.",stressPatchOnly:"À ce niveau, le tampon n'est qu'un pansement. Prévoyez un changement de serveur.",stressMoveMsg:"Score de stress faible. Ce CPU est trop lent pour le test de stress, modifier la configuration n'y changera rien. Passez à un serveur plus rapide.",stressLookFor:"Cherchez un AMD EPYC Zen3 ou plus récent (7003/9004/9005), un Ryzen ou un Intel à 3,4 GHz ou plus. Évitez les anciens VPS Intel sous 2,6 GHz (Haswell, Broadwell, Skylake, Xeon E5 v3/v4)."});
 Object.assign(T.it,{stressBufHead:"Punteggio di stress basso. Provi un buffer in uscita più grande: aggiunga a config.toml (o a una sezione [mixnet.debug] esistente):",stressBufTail:"Poi esegua {cmd}. Il punteggio è una media sulle 24 ore, ricontrolli tra un giorno. Ancora sotto il 90%? La CPU è troppo lenta, passi a un server più veloce.",stressPatchOnly:"Con questo punteggio il buffer è solo una toppa. Pianifichi un cambio di server.",stressMoveMsg:"Punteggio di stress basso. Questa CPU è troppo lenta per lo stress test, modificare la configurazione non servirà. Passi a un server più veloce.",stressLookFor:"Cerchi AMD EPYC Zen3 o successivi (7003/9004/9005), Ryzen o Intel da 3,4 GHz in su. Eviti i vecchi VPS Intel sotto i 2,6 GHz (Haswell, Broadwell, Skylake, Xeon E5 v3/v4)."});
 // CPU model row and 7-day stress history. English fallbacks are inline.
-Object.assign(T.ru,{cpuModel:"Модель CPU",stressHist7d:"Стресс · 7 дней (по часам)",stressNow:"сейчас"});
-Object.assign(T.uk,{cpuModel:"Модель CPU",stressHist7d:"Стрес · 7 днів (погодинно)",stressNow:"зараз"});
-Object.assign(T.zh,{cpuModel:"CPU 型号",stressHist7d:"压力 · 近7天（每小时）",stressNow:"现在"});
-Object.assign(T.es,{cpuModel:"Modelo de CPU",stressHist7d:"Stress · últimos 7 días (por hora)",stressNow:"ahora"});
-Object.assign(T.tr,{cpuModel:"CPU modeli",stressHist7d:"Stress · son 7 gün (saatlik)",stressNow:"şimdi"});
-Object.assign(T.de,{cpuModel:"CPU-Modell",stressHist7d:"Stress · letzte 7 Tage (stündlich)",stressNow:"jetzt"});
-Object.assign(T.fr,{cpuModel:"Modèle de CPU",stressHist7d:"Stress · 7 derniers jours (horaire)",stressNow:"maintenant"});
-Object.assign(T.it,{cpuModel:"Modello CPU",stressHist7d:"Stress · ultimi 7 giorni (orario)",stressNow:"ora"});
+Object.assign(T.ru,{cpuModel:"Модель CPU",stressHistory:"История стресса",shR24:"24ч",shR7:"7д",shR30:"30д",noData:"нет данных",stressNow:"сейчас"});
+Object.assign(T.uk,{cpuModel:"Модель CPU",stressHistory:"Історія стресу",shR24:"24г",shR7:"7д",shR30:"30д",noData:"немає даних",stressNow:"зараз"});
+Object.assign(T.zh,{cpuModel:"CPU 型号",stressHistory:"压力历史",shR24:"24小时",shR7:"7天",shR30:"30天",noData:"无数据",stressNow:"现在"});
+Object.assign(T.es,{cpuModel:"Modelo de CPU",stressHistory:"Historial de stress",shR24:"24h",shR7:"7d",shR30:"30d",noData:"sin datos",stressNow:"ahora"});
+Object.assign(T.tr,{cpuModel:"CPU modeli",stressHistory:"Stress geçmişi",shR24:"24s",shR7:"7g",shR30:"30g",noData:"veri yok",stressNow:"şimdi"});
+Object.assign(T.de,{cpuModel:"CPU-Modell",stressHistory:"Stress-Verlauf",shR24:"24h",shR7:"7T",shR30:"30T",noData:"keine Daten",stressNow:"jetzt"});
+Object.assign(T.fr,{cpuModel:"Modèle de CPU",stressHistory:"Historique du stress",shR24:"24h",shR7:"7j",shR30:"30j",noData:"pas de données",stressNow:"maintenant"});
+Object.assign(T.it,{cpuModel:"Modello CPU",stressHistory:"Storico stress",shR24:"24h",shR7:"7g",shR30:"30g",noData:"nessun dato",stressNow:"ora"});
 // Translations for 2026-05 additions: Network Gaps, Safe&Needed, Port Diagnostics, IPv6 Setup Guide.
 // English values live as fallbacks inline in the rendering code, so T.en is not extended here.
 Object.assign(T.ru, {
@@ -1540,7 +1540,7 @@ function nymHydrateDetail(nid,ip){
     if(ec&&ec.owner){fetch('/api/wallet/'+encodeURIComponent(ec.owner)).then(function(r){return r.json();}).then(function(w){var d=_nymDetail[nid];if(d){d.ownerWallet=w;nymDetailUpd(nid);fetch('/api/wallet/'+encodeURIComponent(ec.owner)+'/txs').then(function(r){return r.json();}).then(function(td){var d=_nymDetail[nid];if(d&&d.ownerWallet){d.ownerWallet.txs=td.txs||[];d.ownerWallet.tx_count=td.tx_count;d.ownerWallet.total_indexed=td.total_indexed;nymDetailUpd(nid);}}).catch(function(){});}}).catch(function(){});}
   }).catch(function(){delete _nymDetail[nid];nymDetailUpd(nid);});
   fetch('/api/node-history/'+nid).then(function(r){return r.json();}).then(function(nh){var d=_nymDetail[nid];if(d){d.nodeHist=nh.events||[];nymDetailUpd(nid);}}).catch(function(){});
-  fetch('/api/stress-history/'+nid+'?hours=168').then(function(r){return r.json();}).then(function(sh){var d=_nymDetail[nid];if(d){d.stressHist=sh.points||[];nymDetailUpd(nid);}}).catch(function(){});
+  fetch('/api/stress-history/'+nid+'?hours=720').then(function(r){return r.json();}).then(function(sh){var d=_nymDetail[nid];if(d){d.stressHist=sh.points||[];nymDetailUpd(nid);}}).catch(function(){});
   fetch('/api/history/'+encodeURIComponent(ip)+'?days=30').then(function(r){return r.json();}).then(function(hd){var d=_nymDetail[nid];if(d){d.history=hd.snapshots||[];nymDetailUpd(nid);}}).catch(function(){});
   fetch('/api/analytics/'+nid+'?days=30').then(function(r){return r.json();}).then(function(a){var d=_nymDetail[nid];if(d){d.analytics=a;nymDetailUpd(nid);}}).catch(function(){});
 }
@@ -2213,6 +2213,31 @@ function renderOfficialProbe(fp,t,c){
   return h;
 }
 
+// Stress history range: 24h and 7d are hourly bars, 30d averages 6-hour buckets (120 bars).
+var SH_RANGES={'24h':{n:24,step:1},'7d':{n:168,step:1},'30d':{n:120,step:6}};
+var _shRange=(function(){try{var v=localStorage.getItem('nymStressRange');return SH_RANGES[v]?v:'7d';}catch(e){return '7d';}})();
+var _shData={},_shSeq=0;
+function stressHistBars(hist,t,c){
+  var R=SH_RANGES[_shRange]||SH_RANGES['7d'],byH={},now=Date.now(),slots=[];
+  hist.forEach(function(p){if(p&&p.hour)byH[p.hour.slice(0,13)]=p;});
+  for(var b=R.n-1;b>=0;b--){
+    var sum=0,cnt=0,k0=null;
+    for(var k=R.step-1;k>=0;k--){var key=new Date(now-(b*R.step+k)*3600000).toISOString().slice(0,13);if(k0==null)k0=key;var p=byH[key];var v=p?(p.stress!=null?p.stress:p.performance):null;if(v!=null){sum+=v;cnt++;}}
+    slots.push({key:k0,v:cnt?sum/cnt:null});
+  }
+  var lbls={'24h':t.shR24||'24h','7d':t.shR7||'7d','30d':t.shR30||'30d'};
+  var h='<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:10px;color:'+c.tx3+';text-transform:uppercase;letter-spacing:.05em;margin-right:auto">'+esc(t.stressHistory||'Stress history')+'</span>';
+  ['24h','7d','30d'].forEach(function(k){var on=k===_shRange;h+='<button type="button" onclick="stressRangeSet(\''+k+'\')" aria-pressed="'+on+'" style="font-family:JetBrains Mono,monospace;font-size:10px;padding:2px 8px;border-radius:5px;cursor:pointer;border:1px solid '+(on?A().accent:c.brd)+';background:'+(on?A().accent+'22':'transparent')+';color:'+(on?A().accent:c.tx3)+'">'+esc(lbls[k])+'</button>';});
+  h+='</div><div style="display:flex;align-items:flex-end;gap:1px;height:38px">';
+  slots.forEach(function(s){var v=s.v,hp=(v==null?100:Math.max(8,Math.round(v*100))),col=(v==null?c.brd:sc(v*100));var lbl=s.key.slice(5,10)+' '+s.key.slice(11,13)+':00 UTC'+(R.step>1?' +'+R.step+'h':'')+' · '+(v==null?(t.noData||'no data'):(Math.round(v*1000)/10)+'%');h+='<div title="'+esc(lbl)+'" style="flex:1;min-width:0;height:'+hp+'%;background:'+col+';border-radius:1px 1px 0 0;opacity:'+(v==null?0.14:0.9)+'"></div>';});
+  h+='</div><div style="display:flex;justify-content:space-between;font-family:JetBrains Mono,monospace;font-size:9px;color:'+c.tx4+';margin-top:3px"><span>'+slots[0].key.slice(5,10)+'</span><span>'+esc(t.stressNow||'now')+'</span></div>';
+  return h;
+}
+function stressRangeSet(k){
+  if(!SH_RANGES[k])return;_shRange=k;try{localStorage.setItem('nymStressRange',k);}catch(e){}
+  var t=T[lang]||T.en,c=C();
+  document.querySelectorAll('[data-shk]').forEach(function(el){var hs=_shData[el.getAttribute('data-shk')];if(hs)el.innerHTML=stressHistBars(hs,t,c);});
+}
 function renderStressCard(sp,t,c,hist){
   // Nym validator annotation scores (0..1): stress / routing / config / performance.
   // stress_testing_score is a mixnode metric that drives rewarded-set selection (weight ~ perf^20);
@@ -2241,19 +2266,12 @@ function renderStressCard(sp,t,c,hist){
   h+=tile(t.stressConfig||'Config',config,config==null);
   h+=tile(t.stressPerf2||'Performance',perf,perf==null);
   h+='</div>';
-  // 7-day hourly bars (168 slots). Upstream exposes only the current 24h-avg, so we log the
-  // score hourly ourselves; empty hours render as faint slots until data fills in.
-  if(hist){
-    var byH={};hist.forEach(function(p){byH[(p.hour||'').slice(0,13)]=p;});
-    var now=new Date(),slots=[],HN=168;
-    for(var _i=HN-1;_i>=0;_i--){var _dd=new Date(now.getTime()-_i*3600000);slots.push(byH[_dd.toISOString().slice(0,13)]||null);}
-    if(slots.some(function(s){return s;})){
-      var _d0=new Date(now.getTime()-(HN-1)*3600000);
-      h+='<div style="margin-top:12px"><div style="font-size:10px;color:'+c.tx3+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+(t.stressHist7d||'Stress · last 7 days (hourly)')+'</div>';
-      h+='<div style="display:flex;align-items:flex-end;gap:1px;height:38px">';
-      slots.forEach(function(p){var v=p?(p.stress!=null?p.stress:p.performance):null;var hp=(v==null?100:Math.max(8,Math.round(v*100)));var col=(v==null?c.brd:sc(v*100));var lbl=(p?((p.hour||'').slice(5,10)+' '+(p.hour||'').slice(11,16)+' UTC · '+(v==null?'—':(Math.round(v*1000)/10)+'%')):'no data');h+='<div title="'+esc(lbl)+'" style="flex:1;min-width:0;height:'+hp+'%;background:'+col+';border-radius:1px 1px 0 0;opacity:'+(v==null?0.14:0.9)+'"></div>';});
-      h+='</div><div style="display:flex;justify-content:space-between;font-family:JetBrains Mono,monospace;font-size:9px;color:'+c.tx4+';margin-top:3px"><span>'+_d0.toISOString().slice(5,10)+'</span><span>'+(t.stressNow||'now')+'</span></div></div>';
-    }
+  // Stress history bars with a 24h / 7d / 30d switch. Upstream exposes only the current 24h-avg,
+  // so we log the score hourly ourselves (up to 30 days are fetched once, the switch redraws in place).
+  if(hist&&hist.some(function(p){return p&&(p.stress!=null||p.performance!=null);})){
+    if(Object.keys(_shData).length>100)_shData={};
+    var _shk='sh'+(++_shSeq);_shData[_shk]=hist;
+    h+='<div data-shk="'+_shk+'" style="margin-top:12px">'+stressHistBars(hist,t,c)+'</div>';
   }
   if(!reach)h+='<div style="font-size:10px;color:'+c.tx3+';margin-top:8px">'+(t.stressNa||'Stress test applies to mixnodes only — this node was not stress-tested (gateways excluded by design).')+'</div>';
   else if(stressLow)h+='<div style="font-size:10px;color:#FBBF24;margin-top:8px">⚠️ '+(t.stressLowMsg||'A low stress score sharply cuts rewarded-set selection weight (~perf^20).')+'</div>';
@@ -2642,7 +2660,7 @@ function hydrateNode(r,getCur,rerender){
   var nid=r.node_id,owner=r.owner;
   var _snid=(r.stress&&r.stress.node_id)||nid;
   if(nid!=null&&r.nodeHist==null){r.nodeHist=[];fetch('/api/node-history/'+nid).then(function(x){return x.json();}).then(function(nh){var cur=getCur();if(cur&&cur.node_id===nid){cur.nodeHist=nh.events||[];rerender();}}).catch(function(){});}
-  if(_snid!=null&&r.stressHist==null){r.stressHist=[];fetch('/api/stress-history/'+encodeURIComponent(_snid)+'?hours=168').then(function(x){return x.json();}).then(function(sh){var cur=getCur();if(cur&&cur.node_id===nid){cur.stressHist=sh.points||[];rerender();}}).catch(function(){});}
+  if(_snid!=null&&r.stressHist==null){r.stressHist=[];fetch('/api/stress-history/'+encodeURIComponent(_snid)+'?hours=720').then(function(x){return x.json();}).then(function(sh){var cur=getCur();if(cur&&cur.node_id===nid){cur.stressHist=sh.points||[];rerender();}}).catch(function(){});}
   if(nid!=null&&r.economics==null){fetch('/api/economics/'+nid).then(function(x){return x.json();}).then(function(ec){var cur=getCur();if(cur&&cur.node_id===nid){cur.economics=ec;rerender();if(ec&&ec.unique_delegations){fetch('/api/delegations/'+nid).then(function(x){return x.json();}).then(function(dd){var c2=getCur();if(c2&&c2.node_id===nid){c2.delegations=dd;rerender();}}).catch(function(){});}}}).catch(function(){});}
   if(owner&&r.ownerWallet==null){r.ownerWallet={loading:true,address:owner};rerender();fetch('/api/wallet/'+encodeURIComponent(owner)).then(function(x){return x.json();}).then(function(w){var cur=getCur();if(cur&&cur.node_id===nid){cur.ownerWallet=w;rerender();fetch('/api/wallet/'+encodeURIComponent(owner)+'/txs').then(function(x){return x.json();}).then(function(td){var c2=getCur();if(c2&&c2.node_id===nid&&c2.ownerWallet){c2.ownerWallet.txs=td.txs||[];c2.ownerWallet.tx_count=td.tx_count;c2.ownerWallet.total_indexed=td.total_indexed;rerender();}}).catch(function(){var c2=getCur();if(c2&&c2.node_id===nid&&c2.ownerWallet){c2.ownerWallet.txsError=true;rerender();}});}else{r.ownerWallet=null;}}).catch(function(){var cur=getCur();if(cur&&cur.node_id===nid){cur.ownerWallet={address:owner,error:true};rerender();}else{r.ownerWallet=null;}});}
 }

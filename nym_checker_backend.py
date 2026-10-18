@@ -3562,7 +3562,7 @@ async def _fetch_stress():
 
 # ── Hourly stress/performance history (upstream only exposes the current 24h-avg) ─────────────
 STRESS_HIST_DB = Path("nym_stress_history.db")
-STRESS_HIST_RETAIN_DAYS = int(os.environ.get("NYM_STRESS_HIST_RETAIN_DAYS", "8"))
+STRESS_HIST_RETAIN_DAYS = int(os.environ.get("NYM_STRESS_HIST_RETAIN_DAYS", "32"))  # 30-day view + margin
 
 def _stress_hist_init():
     import sqlite3
@@ -3616,8 +3616,8 @@ def _read_stress_history(node_id, hours=24):
 
 
 @app.get("/api/stress-history/{node_id}")
-async def stress_history(node_id: int, hours: int = Query(24, ge=1, le=168)):
-    """Hourly stress/performance history for a node (last N hours) — powers the 24-bar view."""
+async def stress_history(node_id: int, hours: int = Query(24, ge=1, le=720)):
+    """Hourly stress/performance history for a node (last N hours) — powers the 24h / 7d / 30d bars."""
     pts = _read_stress_history(node_id, hours)
     return {"node_id": node_id, "hours": hours, "points": pts, "count": len(pts)}
 

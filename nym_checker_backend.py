@@ -2323,10 +2323,16 @@ async def _phw(client, host, port=8080):
             os_name = d.get("system_name", "")
             os_ver = d.get("os_version", "")
             os_full = (os_name + " " + os_ver).strip()
-            return {"available": True, "cpu_cores": cores, "ram_mb": ram, "os": os_full}
+            # CPU model + clock (MHz as reported: nominal on most VMs, momentary on bare metal).
+            # Single-core speed decides the mixnode stress test, so the page shows it next to cores.
+            cpu0 = cpu_list[0] if isinstance(cpu_list, list) and cpu_list and isinstance(cpu_list[0], dict) else {}
+            cpu_model = str(cpu0.get("brand") or "").strip()[:120]
+            cpu_mhz = cpu0.get("frequency") if isinstance(cpu0.get("frequency"), (int, float)) else 0
+            return {"available": True, "cpu_cores": cores, "ram_mb": ram, "os": os_full,
+                    "cpu_model": cpu_model, "cpu_mhz": int(cpu_mhz)}
         except Exception:
             pass
-    return {"available": False, "cpu_cores": 0, "ram_mb": 0, "os": ""}
+    return {"available": False, "cpu_cores": 0, "ram_mb": 0, "os": "", "cpu_model": "", "cpu_mhz": 0}
 
 def _ver_tuple(v):
     """Parse version string into tuple, or None if invalid."""

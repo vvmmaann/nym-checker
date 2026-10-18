@@ -162,6 +162,15 @@ Object.assign(T.tr,{stressBufHead:"Stres puanı düşük. Daha büyük bir çık
 Object.assign(T.de,{stressBufHead:"Niedriger Stress-Score. Versuchen Sie einen größeren Ausgangspuffer: in config.toml ergänzen (oder in einem vorhandenen Abschnitt [mixnet.debug]):",stressBufTail:"Danach {cmd} ausführen. Der Score ist ein 24-Stunden-Mittel, schauen Sie in einem Tag wieder nach. Immer noch unter 90 %? Dann ist die CPU zu langsam, ziehen Sie auf einen schnelleren Server um.",stressPatchOnly:"Bei diesem Score ist der Puffer nur ein Notbehelf. Planen Sie einen Umzug.",stressMoveMsg:"Niedriger Stress-Score. Diese CPU ist für den Stresstest zu langsam, Konfigurationsänderungen helfen nicht. Ziehen Sie auf einen schnelleren Server um.",stressLookFor:"Suchen Sie AMD EPYC Zen3 oder neuer (7003/9004/9005), Ryzen oder Intel ab 3,4 GHz. Meiden Sie alte Intel-VPS unter 2,6 GHz (Haswell, Broadwell, Skylake, Xeon E5 v3/v4)."});
 Object.assign(T.fr,{stressBufHead:"Score de stress faible. Essayez un tampon de sortie plus grand : ajoutez à config.toml (ou à une section [mixnet.debug] existante) :",stressBufTail:"Puis lancez {cmd}. Le score est une moyenne sur 24 h, revenez dans une journée. Toujours sous 90 % ? Le CPU est trop lent, passez à un serveur plus rapide.",stressPatchOnly:"À ce niveau, le tampon n'est qu'un pansement. Prévoyez un changement de serveur.",stressMoveMsg:"Score de stress faible. Ce CPU est trop lent pour le test de stress, modifier la configuration n'y changera rien. Passez à un serveur plus rapide.",stressLookFor:"Cherchez un AMD EPYC Zen3 ou plus récent (7003/9004/9005), un Ryzen ou un Intel à 3,4 GHz ou plus. Évitez les anciens VPS Intel sous 2,6 GHz (Haswell, Broadwell, Skylake, Xeon E5 v3/v4)."});
 Object.assign(T.it,{stressBufHead:"Punteggio di stress basso. Provi un buffer in uscita più grande: aggiunga a config.toml (o a una sezione [mixnet.debug] esistente):",stressBufTail:"Poi esegua {cmd}. Il punteggio è una media sulle 24 ore, ricontrolli tra un giorno. Ancora sotto il 90%? La CPU è troppo lenta, passi a un server più veloce.",stressPatchOnly:"Con questo punteggio il buffer è solo una toppa. Pianifichi un cambio di server.",stressMoveMsg:"Punteggio di stress basso. Questa CPU è troppo lenta per lo stress test, modificare la configurazione non servirà. Passi a un server più veloce.",stressLookFor:"Cerchi AMD EPYC Zen3 o successivi (7003/9004/9005), Ryzen o Intel da 3,4 GHz in su. Eviti i vecchi VPS Intel sotto i 2,6 GHz (Haswell, Broadwell, Skylake, Xeon E5 v3/v4)."});
+// CPU model row and 7-day stress history. English fallbacks are inline.
+Object.assign(T.ru,{cpuModel:"Модель CPU",stressHist7d:"Стресс · 7 дней (по часам)",stressNow:"сейчас"});
+Object.assign(T.uk,{cpuModel:"Модель CPU",stressHist7d:"Стрес · 7 днів (погодинно)",stressNow:"зараз"});
+Object.assign(T.zh,{cpuModel:"CPU 型号",stressHist7d:"压力 · 近7天（每小时）",stressNow:"现在"});
+Object.assign(T.es,{cpuModel:"Modelo de CPU",stressHist7d:"Stress · últimos 7 días (por hora)",stressNow:"ahora"});
+Object.assign(T.tr,{cpuModel:"CPU modeli",stressHist7d:"Stress · son 7 gün (saatlik)",stressNow:"şimdi"});
+Object.assign(T.de,{cpuModel:"CPU-Modell",stressHist7d:"Stress · letzte 7 Tage (stündlich)",stressNow:"jetzt"});
+Object.assign(T.fr,{cpuModel:"Modèle de CPU",stressHist7d:"Stress · 7 derniers jours (horaire)",stressNow:"maintenant"});
+Object.assign(T.it,{cpuModel:"Modello CPU",stressHist7d:"Stress · ultimi 7 giorni (orario)",stressNow:"ora"});
 // Translations for 2026-05 additions: Network Gaps, Safe&Needed, Port Diagnostics, IPv6 Setup Guide.
 // English values live as fallbacks inline in the rendering code, so T.en is not extended here.
 Object.assign(T.ru, {
@@ -1077,6 +1086,13 @@ function badge(t,c){return '<span style="display:inline-flex;padding:2px 8px;bor
 function nymiWord(){return '<b style="background:linear-gradient(95deg,#b8384a,#e0a11a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#b8384a">Nymi</b>';}
 function ftab(label,active,fn,color){var c=C(),cl=color||(theme==='nymesis'?'#a8760f':dark?'#00E599':'#00B37A');return '<button onclick="'+fn+'" style="background:'+(active?cl+'15':c.bg2)+';border:1px solid '+(active?cl+'50':c.brd)+';border-radius:var(--r-2);padding:var(--sp-2) var(--sp-4);color:'+(active?cl:c.tx2)+';font-size:var(--fs-data);font-weight:'+(active?'600':'400')+';cursor:pointer;font-family:Outfit,sans-serif">'+label+'</button>';}
 function mini(label,val,max,ok){var c=C(),cl=ok?A().success:A().danger,pct=Math.round(100*val/max);return '<div style="background:'+c.bg2+';border:1px solid '+c.brd+';border-radius:var(--r-2);padding:var(--sp-2) var(--sp-3);text-align:center"><div style="font-size:var(--fs-stat);font-weight:700;color:'+cl+'">'+esc(String(val))+'<span style="font-size:var(--fs-label);color:'+c.tx3+';font-weight:400">/'+esc(String(max))+'</span></div><div style="height:3px;background:'+c.bg3+';border-radius:2px;margin:5px 0 4px"><div style="height:3px;background:'+cl+';border-radius:2px;width:'+pct+'%"></div></div><div style="font-size:var(--fs-label);color:'+c.tx3+';text-transform:uppercase;letter-spacing:.06em">'+esc(String(label==null?'':label))+'</div></div>';}
+// CPU model + clock under the cores row. Informational (no official requirement), so no ok/fail colour.
+// Clock: the nominal "@ x GHz" from the model name when present, else the MHz the node reports
+// (VMs report the host nominal, bare metal a momentary value), hidden below 1 GHz.
+function cpuModelText(hw){if(!hw||!hw.cpu_model)return '';var m=String(hw.cpu_model),g=0,at=m.match(/@\s*([0-9.]+)\s*GHz/i);if(at)g=parseFloat(at[1]);else if(hw.cpu_mhz>=1000)g=hw.cpu_mhz/1000;m=m.replace(/\((R|TM|tm)\)/g,'').replace(/\s*@\s*[0-9.]+\s*GHz/i,'').replace(/\bCPU\b/g,'').replace(/\s+/g,' ').trim();return m+(g?' · '+g.toFixed(1)+' GHz':'');}
+function cpuModelRow(hw,t){var m=cpuModelText(hw);if(!m)return '';var c=C();return '<div style="display:grid;grid-template-columns:2fr 2.4fr;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid '+c.brd+';align-items:center"><span style="font-size:12px;color:'+c.tx3+';padding-left:12px">'+esc(t.cpuModel||'CPU model')+'</span><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:'+c.tx2+';text-align:right">'+esc(m)+'</span></div>';}
+// Nymesis node page has no requirements table: one hardware line under the stat tiles.
+function nymHwLine(hw,t){if(!hw||!hw.available)return '';var m=cpuModelText(hw),p=[];if(m)p.push(m);if(hw.cpu_cores)p.push(hw.cpu_cores+(t.cores||' cores'));if(hw.ram_mb)p.push((Math.round(hw.ram_mb/102.4)/10)+' GB RAM');if(!p.length)return '';return '<div style="background:#fff;border:1px solid #d9c9a0;border-radius:12px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="material-icons" style="font-size:18px;color:#a8760f">memory</span><span style="font-size:var(--fs-label);color:#6d5c3b;text-transform:uppercase;letter-spacing:.4px">'+esc(t.hw||'Hardware')+'</span><span style="font-family:Fira Code,monospace;font-size:12px;color:#2b2417">'+esc(p.join(' · '))+'</span></div>';}
 function drow(label,actual,req,ok){var c=C(),cl=ok?A().success:A().danger;return '<div style="display:grid;grid-template-columns:2fr 1.2fr 1.2fr;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid '+c.brd+';align-items:center"><div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:'+cl+';flex-shrink:0"></div><span style="font-size:12px;color:'+c.tx3+'">'+esc(String(label==null?'':label))+'</span></div><span style="font-family:JetBrains Mono,monospace;font-size:12px;font-weight:500;color:'+cl+';text-align:right">'+esc(String(actual==null?'':actual))+'</span><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:'+c.tx4+';text-align:right">'+esc(String(req==null?'':req))+'</span></div>';}
 function searchMatch(n,q){var ql=q.toLowerCase();var qe=lc(q).toLowerCase();return mm(n,ql)||mm(n,qe);}
 function mm(n,ql){return(n.ip||'').toLowerCase().indexOf(ql)!==-1||(n.moniker||'').toLowerCase().indexOf(ql)!==-1||(n.hostname||'').toLowerCase().indexOf(ql)!==-1||String(n.node_id||'').indexOf(ql)!==-1;}
@@ -1524,7 +1540,7 @@ function nymHydrateDetail(nid,ip){
     if(ec&&ec.owner){fetch('/api/wallet/'+encodeURIComponent(ec.owner)).then(function(r){return r.json();}).then(function(w){var d=_nymDetail[nid];if(d){d.ownerWallet=w;nymDetailUpd(nid);fetch('/api/wallet/'+encodeURIComponent(ec.owner)+'/txs').then(function(r){return r.json();}).then(function(td){var d=_nymDetail[nid];if(d&&d.ownerWallet){d.ownerWallet.txs=td.txs||[];d.ownerWallet.tx_count=td.tx_count;d.ownerWallet.total_indexed=td.total_indexed;nymDetailUpd(nid);}}).catch(function(){});}}).catch(function(){});}
   }).catch(function(){delete _nymDetail[nid];nymDetailUpd(nid);});
   fetch('/api/node-history/'+nid).then(function(r){return r.json();}).then(function(nh){var d=_nymDetail[nid];if(d){d.nodeHist=nh.events||[];nymDetailUpd(nid);}}).catch(function(){});
-  fetch('/api/stress-history/'+nid).then(function(r){return r.json();}).then(function(sh){var d=_nymDetail[nid];if(d){d.stressHist=sh.points||[];nymDetailUpd(nid);}}).catch(function(){});
+  fetch('/api/stress-history/'+nid+'?hours=168').then(function(r){return r.json();}).then(function(sh){var d=_nymDetail[nid];if(d){d.stressHist=sh.points||[];nymDetailUpd(nid);}}).catch(function(){});
   fetch('/api/history/'+encodeURIComponent(ip)+'?days=30').then(function(r){return r.json();}).then(function(hd){var d=_nymDetail[nid];if(d){d.history=hd.snapshots||[];nymDetailUpd(nid);}}).catch(function(){});
   fetch('/api/analytics/'+nid+'?days=30').then(function(r){return r.json();}).then(function(a){var d=_nymDetail[nid];if(d){d.analytics=a;nymDetailUpd(nid);}}).catch(function(){});
 }
@@ -1657,6 +1673,7 @@ function renderNymesisDetail(r,t,c){
   h+=nymStat('Delegators',e.unique_delegations!=null?e.unique_delegations:null,'',null);
   h+=nymStat('Pledge',e.pledge!=null?nfmt(e.pledge):null,'NYM',null);
   h+='</div>';
+  h+=nymHwLine(r.hardware,t);
   if(r.stress&&r.stress.available){h+=renderStressCard(r.stress,t,c,r.stressHist);}
   h+=renderNymEventLog(r,t,c);
   if(r.economics&&r.economics.available!==false){h+=renderEconomicsCard(r.economics,t,c);}
@@ -1749,7 +1766,7 @@ function _renderContentInner(){
       h+=drow('IPv6',r.ipv6?(r.ipv6.supported?t.supported:t.notSupported):'?',t.supported,r.ipv6?r.ipv6.ok:false);
       var cpuA=r.hardware&&r.hardware.cpu_cores?r.hardware.cpu_cores+t.cores:'?'+t.cores;
       var ramA=r.hardware&&r.hardware.ram_mb?r.hardware.ram_mb+t.mb:'?'+t.mb;
-      h+=drow(t.cpu,cpuA,rh.cpu_cores+t.cores,r.hardware?r.hardware.cpu_cores>=rh.cpu_cores:false);
+      h+=drow(t.cpu,cpuA,rh.cpu_cores+t.cores,r.hardware?r.hardware.cpu_cores>=rh.cpu_cores:false);h+=cpuModelRow(r.hardware,t);
       h+=drow(t.ram,ramA,rh.ram_mb+t.mb,r.hardware?r.hardware.ram_mb>=rh.ram_mb:false);
       h+=drow(t.toc,r.toc?(r.toc.accepted?t.accepted:t.notAccepted):'?',t.accepted,r.toc?r.toc.ok:false);
       h+='</div>';
@@ -2224,17 +2241,18 @@ function renderStressCard(sp,t,c,hist){
   h+=tile(t.stressConfig||'Config',config,config==null);
   h+=tile(t.stressPerf2||'Performance',perf,perf==null);
   h+='</div>';
-  // 24-hour hourly bars (rolling window). Upstream exposes only the current 24h-avg, so we
-  // log the score hourly ourselves; empty hours render as faint slots until data fills in.
+  // 7-day hourly bars (168 slots). Upstream exposes only the current 24h-avg, so we log the
+  // score hourly ourselves; empty hours render as faint slots until data fills in.
   if(hist){
     var byH={};hist.forEach(function(p){byH[(p.hour||'').slice(0,13)]=p;});
-    var now=new Date(),slots=[];
-    for(var _i=23;_i>=0;_i--){var _dd=new Date(now.getTime()-_i*3600000);slots.push(byH[_dd.toISOString().slice(0,13)]||null);}
+    var now=new Date(),slots=[],HN=168;
+    for(var _i=HN-1;_i>=0;_i--){var _dd=new Date(now.getTime()-_i*3600000);slots.push(byH[_dd.toISOString().slice(0,13)]||null);}
     if(slots.some(function(s){return s;})){
-      h+='<div style="margin-top:12px"><div style="font-size:10px;color:'+c.tx3+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+(t.stressHist24||'Stress · last 24h (hourly)')+'</div>';
-      h+='<div style="display:flex;align-items:flex-end;gap:2px;height:38px">';
-      slots.forEach(function(p){var v=p?(p.stress!=null?p.stress:p.performance):null;var hp=(v==null?100:Math.max(8,Math.round(v*100)));var col=(v==null?c.brd:sc(v*100));var lbl=(p?((p.hour||'').slice(11,16)+' · '+(v==null?'—':(Math.round(v*1000)/10)+'%')):'no data');h+='<div title="'+esc(lbl)+'" style="flex:1;height:'+hp+'%;background:'+col+';border-radius:2px 2px 0 0;opacity:'+(v==null?0.14:0.9)+'"></div>';});
-      h+='</div></div>';
+      var _d0=new Date(now.getTime()-(HN-1)*3600000);
+      h+='<div style="margin-top:12px"><div style="font-size:10px;color:'+c.tx3+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+(t.stressHist7d||'Stress · last 7 days (hourly)')+'</div>';
+      h+='<div style="display:flex;align-items:flex-end;gap:1px;height:38px">';
+      slots.forEach(function(p){var v=p?(p.stress!=null?p.stress:p.performance):null;var hp=(v==null?100:Math.max(8,Math.round(v*100)));var col=(v==null?c.brd:sc(v*100));var lbl=(p?((p.hour||'').slice(5,10)+' '+(p.hour||'').slice(11,16)+' UTC · '+(v==null?'—':(Math.round(v*1000)/10)+'%')):'no data');h+='<div title="'+esc(lbl)+'" style="flex:1;min-width:0;height:'+hp+'%;background:'+col+';border-radius:1px 1px 0 0;opacity:'+(v==null?0.14:0.9)+'"></div>';});
+      h+='</div><div style="display:flex;justify-content:space-between;font-family:JetBrains Mono,monospace;font-size:9px;color:'+c.tx4+';margin-top:3px"><span>'+_d0.toISOString().slice(5,10)+'</span><span>'+(t.stressNow||'now')+'</span></div></div>';
     }
   }
   if(!reach)h+='<div style="font-size:10px;color:'+c.tx3+';margin-top:8px">'+(t.stressNa||'Stress test applies to mixnodes only — this node was not stress-tested (gateways excluded by design).')+'</div>';
@@ -2490,7 +2508,7 @@ function renderDetailCard(r,t,c,key,compact){
   h+=drow('IPv6',_i6lbl,t.supported,r.ipv6?r.ipv6.ok:false);
   var cpuA=r.hardware&&r.hardware.cpu_cores?r.hardware.cpu_cores+t.cores:'?'+t.cores;
   var ramA=r.hardware&&r.hardware.ram_mb?r.hardware.ram_mb+t.mb:'?'+t.mb;
-  h+=drow(t.cpu,cpuA,rh.cpu_cores+t.cores,r.hardware?r.hardware.cpu_cores>=rh.cpu_cores:false);
+  h+=drow(t.cpu,cpuA,rh.cpu_cores+t.cores,r.hardware?r.hardware.cpu_cores>=rh.cpu_cores:false);h+=cpuModelRow(r.hardware,t);
   h+=drow(t.ram,ramA,rh.ram_mb+t.mb,r.hardware?r.hardware.ram_mb>=rh.ram_mb:false);
   h+=drow(t.toc,r.toc?(r.toc.accepted?t.accepted:t.notAccepted):'?',t.accepted,r.toc?r.toc.ok:false);
   h+='</div>';
@@ -2624,7 +2642,7 @@ function hydrateNode(r,getCur,rerender){
   var nid=r.node_id,owner=r.owner;
   var _snid=(r.stress&&r.stress.node_id)||nid;
   if(nid!=null&&r.nodeHist==null){r.nodeHist=[];fetch('/api/node-history/'+nid).then(function(x){return x.json();}).then(function(nh){var cur=getCur();if(cur&&cur.node_id===nid){cur.nodeHist=nh.events||[];rerender();}}).catch(function(){});}
-  if(_snid!=null&&r.stressHist==null){r.stressHist=[];fetch('/api/stress-history/'+encodeURIComponent(_snid)).then(function(x){return x.json();}).then(function(sh){var cur=getCur();if(cur&&cur.node_id===nid){cur.stressHist=sh.points||[];rerender();}}).catch(function(){});}
+  if(_snid!=null&&r.stressHist==null){r.stressHist=[];fetch('/api/stress-history/'+encodeURIComponent(_snid)+'?hours=168').then(function(x){return x.json();}).then(function(sh){var cur=getCur();if(cur&&cur.node_id===nid){cur.stressHist=sh.points||[];rerender();}}).catch(function(){});}
   if(nid!=null&&r.economics==null){fetch('/api/economics/'+nid).then(function(x){return x.json();}).then(function(ec){var cur=getCur();if(cur&&cur.node_id===nid){cur.economics=ec;rerender();if(ec&&ec.unique_delegations){fetch('/api/delegations/'+nid).then(function(x){return x.json();}).then(function(dd){var c2=getCur();if(c2&&c2.node_id===nid){c2.delegations=dd;rerender();}}).catch(function(){});}}}).catch(function(){});}
   if(owner&&r.ownerWallet==null){r.ownerWallet={loading:true,address:owner};rerender();fetch('/api/wallet/'+encodeURIComponent(owner)).then(function(x){return x.json();}).then(function(w){var cur=getCur();if(cur&&cur.node_id===nid){cur.ownerWallet=w;rerender();fetch('/api/wallet/'+encodeURIComponent(owner)+'/txs').then(function(x){return x.json();}).then(function(td){var c2=getCur();if(c2&&c2.node_id===nid&&c2.ownerWallet){c2.ownerWallet.txs=td.txs||[];c2.ownerWallet.tx_count=td.tx_count;c2.ownerWallet.total_indexed=td.total_indexed;rerender();}}).catch(function(){var c2=getCur();if(c2&&c2.node_id===nid&&c2.ownerWallet){c2.ownerWallet.txsError=true;rerender();}});}else{r.ownerWallet=null;}}).catch(function(){var cur=getCur();if(cur&&cur.node_id===nid){cur.ownerWallet={address:owner,error:true};rerender();}else{r.ownerWallet=null;}});}
 }

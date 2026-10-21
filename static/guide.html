@@ -66,6 +66,7 @@ input:focus{outline:2px solid var(--acc);outline-offset:1px}
 .langsel select{background:var(--bg2);color:var(--tx);border:1px solid var(--brd);border-radius:8px;padding:6px 8px;font:500 13px Outfit,sans-serif;cursor:pointer}
 .tabs.modes{margin:18px 0 22px}.tabs.modes .tab{font-size:15px;padding:10px 20px}
 .mvgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}.mvgrid>div{display:flex;flex-direction:column;justify-content:flex-end}.mvgrid .span2{grid-column:span 2}
+.mvgrid input.bad{border-color:#E5484D;box-shadow:0 0 0 1px #E5484D}#m-hint.bad{color:#E5484D;font-weight:600}
 @media (max-width:640px){.mvgrid{grid-template-columns:1fr}.mvgrid .span2{grid-column:auto}.mvgrid>div:empty{display:none}}
 </style>
 
@@ -571,7 +572,14 @@ function fillMove(){
     p.textContent=t;
   });
   document.querySelectorAll('code[data-host="mvnew"]').forEach(function(c){c.textContent=nw;});
-  document.getElementById('m-hint').textContent=((oldRaw&&!oldOk)||(newRaw&&!newOk))?tr('mv_hintBadIp'):((!oldRaw||!newRaw)?tr('mv_hintNoIp'):'');
+  // red frame on a field whose address is not valid (the commands keep the placeholder then)
+  var badOld=!!(oldRaw&&!oldOk),badNew=!!(newRaw&&!newOk);
+  document.getElementById('m-old').classList.toggle('bad',badOld);
+  document.getElementById('m-new').classList.toggle('bad',badNew);
+  document.getElementById('m-new6').classList.toggle('bad',!!(n6&&!n6ok));
+  var hint=document.getElementById('m-hint');
+  hint.textContent=(badOld||badNew)?tr('mv_hintBadIp'):((!oldRaw||!newRaw)?tr('mv_hintNoIp'):'');
+  hint.classList.toggle('bad',badOld||badNew);
   var chk=document.getElementById('m-check');if(newOk&&!chk.dataset.touched)chk.value=newRaw;
   mvSave();
 }

@@ -4,22 +4,30 @@
 # Env: WEBHOOK_SECRET (HMAC shared secret), DEPLOY_SCRIPT (absolute path).
 
 import hashlib, hmac, json, os, subprocess, sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
 SECRET = os.environ.get('WEBHOOK_SECRET', '').encode()
 DEPLOY_SCRIPT = os.environ.get('DEPLOY_SCRIPT', '/opt/nym-checker/deploy/deploy.sh')
 PORT = int(os.environ.get('WEBHOOK_PORT', '9999'))
+MAX_BODY = 2 * 1024 * 1024   # GitHub push payloads are far smaller; the body is read before the HMAC check
 
 if not SECRET:
     print('ERROR: set WEBHOOK_SECRET env var', file=sys.stderr)
     sys.exit(1)
 
 class Handler(BaseHTTPRequestHandler):
+    timeout = 15   # a silent connection used to block the single-threaded server for days
+
     def do_POST(self):
         if self.path != '/webhook':
             self.send_response(404); self.end_headers(); return
-        length = int(self.headers.get('Content-Length', '0'))
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            length = -1
+        if length < 0 or length > MAX_BODY:
+            self.send_response(413); self.end_headers(); return
         body = self.rfile.read(length)
         sig_header = self.headers.get('X-Hub-Signature-256', '')
         if not sig_header.startswith('sha256='):
@@ -46,4 +54,6 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     print(f'[webhook] listening on 0.0.0.0:{PORT} -> {DEPLOY_SCRIPT}')
-    HTTPServer(('0.0.0.0', PORT), Handler).serve_forever()
+    server = ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
+    server.daemon_threads = True
+    server.serve_forever()
